@@ -45,22 +45,35 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
-const users_service_1 = require("../users/users.service");
+const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = __importStar(require("bcrypt"));
 let AuthService = class AuthService {
-    usersService;
+    prisma;
     jwtService;
-    constructor(usersService, jwtService) {
-        this.usersService = usersService;
+    constructor(prisma, jwtService) {
+        this.prisma = prisma;
         this.jwtService = jwtService;
     }
-    async validateUser(email, pass) {
-        const user = await this.usersService.findByEmail(email);
-        if (user && (await bcrypt.compare(pass, user.password))) {
-            const { password, ...result } = user;
-            return result;
+    async validateUser(email, password) {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
+            include: {
+                roles: {
+                    include: {
+                        role: true,
+                    },
+                },
+            },
+        });
+        if (!user || !user.isActive) {
+            return null;
         }
-        return null;
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
+            return null;
+        }
+        const { passwordHash, ...result } = user;
+        return result;
     }
     async login(user) {
         const payload = { email: user.email, sub: user.id };
@@ -69,16 +82,67 @@ let AuthService = class AuthService {
             user: {
                 id: user.id,
                 email: user.email,
-                name: user.name,
-                roles: user.roles.map((r) => r.role.name),
+                fullName: user.fullName,
+                department: user.department,
+                mustChangePassword: user.mustChangePassword,
+                roles: user.roles.map((ur) => ur.role.name),
             },
         };
+    }
+    async changePassword(userId, newPassword) {
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                passwordHash,
+                mustChangePassword: false,
+            }
+        });
+        return { message: 'Password updated successfully' };
+    }
+    async findPermissions(userId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                permissions: {
+                    include: {
+                        permission: true,
+                    },
+                },
+                roles: {
+                    include: {
+                        role: {
+                            include: {
+                                permissions: {
+                                    include: {
+                                        permission: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!user) {
+            return [];
+        }
+        const permissionSet = new Set();
+        user.permissions.forEach((up) => {
+            permissionSet.add(`${up.permission.resource}:${up.permission.action}`);
+        });
+        user.roles.forEach((ur) => {
+            ur.role.permissions.forEach((rp) => {
+                permissionSet.add(`${rp.permission.resource}:${rp.permission.action}`);
+            });
+        });
+        return Array.from(permissionSet);
     }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [users_service_1.UsersService,
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

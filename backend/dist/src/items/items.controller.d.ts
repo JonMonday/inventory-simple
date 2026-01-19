@@ -1,98 +1,156 @@
 import { ItemsService } from './items.service';
 export declare class ItemsController {
-    private readonly itemsService;
+    private itemsService;
     constructor(itemsService: ItemsService);
-    findAll(): Promise<({
-        snapshots: ({
-            location: {
-                id: string;
-                description: string | null;
-                name: string;
-                createdAt: Date;
-                updatedAt: Date;
-                type: import(".prisma/client").$Enums.LocationType;
-            };
-        } & {
-            id: string;
-            updatedAt: Date;
-            itemId: string;
-            quantity: number;
-            locationId: string;
-        })[];
+    findAll(categoryId?: string, status?: string, search?: string): Promise<({
         category: {
             id: string;
+            description: string | null;
+            createdAt: Date;
             name: string;
-        } | null;
-        uom: {
-            id: string;
-            name: string;
+            updatedAt: Date;
+            parentCategoryId: string | null;
         };
     } & {
         id: string;
         description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        sku: string;
-        uomId: string;
-        categoryId: string | null;
-        discontinued: boolean;
-        reorderLevel: number;
-        reorderQuantity: number;
+        code: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        status: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
     })[]>;
     findOne(id: string): Promise<({
-        snapshots: {
-            id: string;
-            updatedAt: Date;
-            itemId: string;
-            quantity: number;
-            locationId: string;
-        }[];
         category: {
             id: string;
+            description: string | null;
+            createdAt: Date;
             name: string;
-        } | null;
-        uom: {
+            updatedAt: Date;
+            parentCategoryId: string | null;
+        };
+        stockSnapshots: ({
+            location: {
+                id: string;
+                createdAt: Date;
+                name: string;
+                isActive: boolean;
+                updatedAt: Date;
+                code: string;
+                type: string;
+                parentLocationId: string | null;
+            };
+        } & {
+            itemId: string;
+            locationId: string;
+            quantityOnHand: number;
+            lastUpdatedAt: Date;
+        })[];
+    } & {
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        name: string;
+        updatedAt: Date;
+        code: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        status: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
+    }) | null>;
+    create(createDto: {
+        code: string;
+        name: string;
+        description?: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        reorderLevel?: number;
+        reorderQuantity?: number;
+    }): Promise<{
+        category: {
             id: string;
+            description: string | null;
+            createdAt: Date;
             name: string;
+            updatedAt: Date;
+            parentCategoryId: string | null;
         };
     } & {
         id: string;
         description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        sku: string;
-        uomId: string;
-        categoryId: string | null;
-        discontinued: boolean;
-        reorderLevel: number;
-        reorderQuantity: number;
-    }) | null>;
-    create(data: any): Promise<{
+        code: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        status: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
+    }>;
+    update(id: string, updateDto: {
+        name?: string;
+        description?: string;
+        categoryId?: string;
+        unitOfMeasure?: string;
+        status?: string;
+        reorderLevel?: number;
+        reorderQuantity?: number;
+    }): Promise<{
+        category: {
+            id: string;
+            description: string | null;
+            createdAt: Date;
+            name: string;
+            updatedAt: Date;
+            parentCategoryId: string | null;
+        };
+    } & {
         id: string;
         description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        sku: string;
-        uomId: string;
-        categoryId: string | null;
-        discontinued: boolean;
-        reorderLevel: number;
-        reorderQuantity: number;
+        code: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        status: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
     }>;
-    update(id: string, data: any): Promise<{
+    delete(id: string): Promise<{
         id: string;
         description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
         updatedAt: Date;
-        sku: string;
-        uomId: string;
-        categoryId: string | null;
-        discontinued: boolean;
-        reorderLevel: number;
-        reorderQuantity: number;
+        code: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        status: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
     }>;
+    getStockLevels(id: string): Promise<({
+        location: {
+            id: string;
+            createdAt: Date;
+            name: string;
+            isActive: boolean;
+            updatedAt: Date;
+            code: string;
+            type: string;
+            parentLocationId: string | null;
+        };
+    } & {
+        itemId: string;
+        locationId: string;
+        quantityOnHand: number;
+        lastUpdatedAt: Date;
+    })[]>;
 }

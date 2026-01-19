@@ -2,42 +2,45 @@ import { PrismaService } from '../prisma/prisma.service';
 export declare class UsersService {
     private prisma;
     constructor(prisma: PrismaService);
-    findByEmail(email: string): Promise<({
-        roles: ({
+    create(data: {
+        email: string;
+        fullName: string;
+        department?: string;
+        password?: string;
+    }): Promise<{
+        id: string;
+        email: string;
+        fullName: string;
+        department: string | null;
+        mustChangePassword: boolean;
+        isActive: boolean;
+        createdAt: Date;
+    }>;
+    findAll(): Promise<{
+        id: string;
+        email: string;
+        fullName: string;
+        department: string | null;
+        isActive: boolean;
+        createdAt: Date;
+        roles: {
             role: {
-                permissions: ({
-                    permission: {
-                        id: string;
-                        action: string;
-                        description: string | null;
-                    };
-                } & {
-                    roleId: string;
-                    permissionId: string;
-                })[];
-            } & {
-                id: string;
-                description: string | null;
                 name: string;
             };
-        } & {
-            roleId: string;
-            userId: string;
-        })[];
-    } & {
+        }[];
+    }[]>;
+    update(id: string, data: {
+        fullName?: string;
+        department?: string;
+        isActive?: boolean;
+    }): Promise<{
         id: string;
-        name: string | null;
         email: string;
-        password: string;
-        createdAt: Date;
-        updatedAt: Date;
-    }) | null>;
-    findPermissions(userId: string): Promise<string[]>;
-    create(data: any): Promise<{
-        id: string;
-        name: string | null;
-        email: string;
-        password: string;
+        passwordHash: string;
+        fullName: string;
+        department: string | null;
+        mustChangePassword: boolean;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
     }>;

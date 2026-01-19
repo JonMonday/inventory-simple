@@ -14,35 +14,43 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ItemsController = void 0;
 const common_1 = require("@nestjs/common");
+const passport_1 = require("@nestjs/passport");
 const items_service_1 = require("./items.service");
-const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
-const permissions_guard_1 = require("../auth/guards/permissions.guard");
-const permissions_decorator_1 = require("../auth/decorators/permissions.decorator");
+const permissions_decorator_1 = require("../common/decorators/permissions.decorator");
 let ItemsController = class ItemsController {
     itemsService;
     constructor(itemsService) {
         this.itemsService = itemsService;
     }
-    findAll() {
-        return this.itemsService.findAll();
+    async findAll(categoryId, status, search) {
+        return this.itemsService.findAll({ categoryId, status, search });
     }
-    findOne(id) {
+    async findOne(id) {
         return this.itemsService.findOne(id);
     }
-    create(data) {
-        return this.itemsService.create(data);
+    async create(createDto) {
+        return this.itemsService.create(createDto);
     }
-    update(id, data) {
-        return this.itemsService.update(id, data);
+    async update(id, updateDto) {
+        return this.itemsService.update(id, updateDto);
+    }
+    async delete(id) {
+        return this.itemsService.delete(id);
+    }
+    async getStockLevels(id) {
+        return this.itemsService.getStockLevels(id);
     }
 };
 exports.ItemsController = ItemsController;
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('items.read'),
+    __param(0, (0, common_1.Query)('categoryId')),
+    __param(1, (0, common_1.Query)('status')),
+    __param(2, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
 ], ItemsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
@@ -50,7 +58,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ItemsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Post)(),
@@ -58,7 +66,7 @@ __decorate([
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ItemsController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
@@ -67,11 +75,27 @@ __decorate([
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], ItemsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, permissions_decorator_1.Permissions)('items.delete'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ItemsController.prototype, "delete", null);
+__decorate([
+    (0, common_1.Get)(':id/stock'),
+    (0, permissions_decorator_1.Permissions)('stock.read'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ItemsController.prototype, "getStockLevels", null);
 exports.ItemsController = ItemsController = __decorate([
     (0, common_1.Controller)('items'),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permissions_guard_1.PermissionsGuard),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
     __metadata("design:paramtypes", [items_service_1.ItemsService])
 ], ItemsController);
 //# sourceMappingURL=items.controller.js.map

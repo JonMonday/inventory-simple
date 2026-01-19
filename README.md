@@ -1,65 +1,107 @@
-# Production-Grade Inventory Management Web App
+# Inventory Management System
 
-A full-stack, auditable inventory management system with RBAC, Excel-like UI, and industrial-grade ledger logic.
+A production-ready inventory management system with automated database migrations and seeding.
 
-## 🚀 One-Command Deployment
-Ensure you have Docker and Docker Compose installed.
+## 🚀 Quickstart
+
+Ensure you have Docker installed, then run:
 
 ```bash
 docker compose up --build
 ```
 
-### 🛠️ Local Development (Manual)
-If you do not have Docker installed, follow these steps:
+This will:
+1. Start Postgres, Redis, pgAdmin, Backend, and Frontend.
+2. Automatically run `prisma generate`.
+3. Automatically run `prisma migrate deploy`.
+4. Automatically run `prisma db seed`.
+5. Start the backend server on port 3001.
 
-1. **Prerequisites**:
-   - Install [PostgreSQL](https://www.postgresql.org/) and create a database named `inventory`.
-   - Install [Redis](https://redis.io/).
-   - Set environment variables in `.env` (copy from `.env.example`).
+---
 
-2. **Backend**:
+## 🛠️ Troubleshooting "Chunk Commands"
+
+Use these commands for manual troubleshooting or specific actions without restarting the entire stack.
+
+### Rebuild only
 ```bash
-cd backend
-npm install
-npx prisma migrate dev
-npm run start:dev
+docker compose build
 ```
 
-3. **Frontend**:
+### Start only database services
 ```bash
-cd frontend
-npm install
-npm run dev
+docker compose up -d postgres redis pgadmin
 ```
 
-The app will be available at:
-- Frontend: [http://localhost:3000](http://localhost:3000)
-- Backend API: [http://localhost:3001](http://localhost:3001)
-- Swagger Docs: [http://localhost:3001/api](http://localhost:3001/api)
+### Run migrations only
+```bash
+docker compose exec backend npm run prisma:migrate
+```
+
+### Run seed only
+```bash
+docker compose exec backend npm run prisma:seed
+```
+
+### Check logs per service
+```bash
+# All logs
+docker compose logs -f
+
+# Specific service
+docker compose logs -f backend
+docker compose logs -f postgres
+```
+
+### Open PSQL inside container
+```bash
+docker compose exec postgres psql -U postgres -d inventory
+```
+
+### Reset DB Volume (WARNING: Deletes all data!)
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## 📊 pgAdmin Guide
+
+Use pgAdmin to visualize and manage your database data.
+
+1. **Open pgAdmin**: [http://localhost:5050](http://localhost:5050)
+2. **Login**: No password required (configured in `docker-compose.yml`).
+3. **Register Server**:
+   - Right-click "Servers" > Register > Server...
+   - **General Tab**: Name it `Inventory DB`
+   - **Connection Tab**:
+     - **Host name/address**: `postgres` (This is the service name in docker-compose, NOT localhost)
+     - **Port**: `5432`
+     - **Maintenance database**: `inventory`
+     - **Username**: `postgres`
+     - **Password**: `postgres` (or whatever is in your `.env`)
+     - **Save Password**: Checked
+4. Click **Save**.
+
+---
+
+## ✅ Verification Steps
+
+### Confirm Tables Exist
+1. In pgAdmin, navigate to: `Inventory DB` > `Databases` > `inventory` > `Schemas` > `public` > `Tables`.
+2. You should see: `Category`, `Product`, `Role`, `StockMovement`, `User`, `Warehouse`, and `_prisma_migrations`.
+
+### Confirm Seeded Rows
+Right-click on any table (e.g., `Product`) > View/Edit Data > All Rows.
+- **Role**: Should have `Admin` and `Staff`.
+- **User**: Should have `admin@example.com`.
+- **Category**: Should have 3 categories (Electronics, Furniture, Office Supplies).
+- **Product**: Should have 5 products.
+- **StockMovement**: Should have 4 initial entries.
+
+---
 
 ## 🔑 Default Credentials
-- **Admin**: `admin@example.com` / `admin123`
-
-## ✨ Core Features
-- **Excel-like UI**: Powered by AG Grid for high-density keyboard-friendly data management.
-- **Append-only Ledger**: Immutable history of every inventory movement (Audit Trail).
-- **Transactional Consistency**: Database-level transactions ensure stock levels and ledger entries always match.
-- **RBAC**: Granular permission-based access control.
-- **Imports**: Robust background Excel importing via BullMQ.
-- **Forecasting**: Consumption prediction using Moving Average algorithms.
-
-## 🏗️ Tech Stack
-- **Frontend**: Next.js, Tailwind CSS, AG Grid
-- **Backend**: NestJS, Prisma ORM, PostgreSQL
-- **Jobs**: Redis, BullMQ
-- **Infra**: Docker
-
-## 📥 How to Import
-1. Navigate to the **Bulk Import** page.
-2. Select the provided `Inventory Template.xlsx`.
-3. Monitor the background job status until completed.
-
-## 📈 RBAC Structure
-- **SuperAdmin**: Full access to all modules and user management.
-- **Storekeeper**: Can receive, issue, and view items.
-- **Auditor**: Read-only access to ledger and logs.
+- **Admin Email**: `admin@example.com`
+- **Password**: `admin123`

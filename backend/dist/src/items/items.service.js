@@ -17,16 +17,24 @@ let ItemsService = class ItemsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async findAll() {
+    async findAll(filters) {
         return this.prisma.item.findMany({
+            where: {
+                ...(filters?.categoryId && { categoryId: filters.categoryId }),
+                ...(filters?.status && { status: filters.status }),
+                ...(filters?.search && {
+                    OR: [
+                        { code: { contains: filters.search } },
+                        { name: { contains: filters.search } },
+                        { description: { contains: filters.search } },
+                    ],
+                }),
+            },
             include: {
                 category: true,
-                uom: true,
-                snapshots: {
-                    include: {
-                        location: true,
-                    }
-                }
+            },
+            orderBy: {
+                code: 'asc',
             },
         });
     }
@@ -35,20 +43,46 @@ let ItemsService = class ItemsService {
             where: { id },
             include: {
                 category: true,
-                uom: true,
-                snapshots: true,
+                stockSnapshots: {
+                    include: {
+                        location: true,
+                    },
+                },
             },
         });
     }
     async create(data) {
         return this.prisma.item.create({
-            data,
+            data: {
+                ...data,
+                status: 'ACTIVE',
+            },
+            include: {
+                category: true,
+            },
         });
     }
     async update(id, data) {
         return this.prisma.item.update({
             where: { id },
             data,
+            include: {
+                category: true,
+            },
+        });
+    }
+    async delete(id) {
+        return this.prisma.item.update({
+            where: { id },
+            data: { status: 'DISCONTINUED' },
+        });
+    }
+    async getStockLevels(itemId) {
+        return this.prisma.stockSnapshot.findMany({
+            where: { itemId },
+            include: {
+                location: true,
+            },
         });
     }
 };

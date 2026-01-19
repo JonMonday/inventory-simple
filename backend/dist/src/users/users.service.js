@@ -51,62 +51,60 @@ let UsersService = class UsersService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async findByEmail(email) {
-        return this.prisma.user.findUnique({
-            where: { email },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            include: {
-                                permissions: {
-                                    include: {
-                                        permission: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-    }
-    async findPermissions(userId) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                roles: {
-                    include: {
-                        role: {
-                            include: {
-                                permissions: {
-                                    include: {
-                                        permission: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-        if (!user)
-            return [];
-        const permissions = new Set();
-        user.roles.forEach((ur) => {
-            ur.role.permissions.forEach((rp) => {
-                permissions.add(rp.permission.action);
-            });
-        });
-        return Array.from(permissions);
-    }
     async create(data) {
-        const hashedPassword = await bcrypt.hash(data.password, 10);
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: data.email },
+        });
+        if (existingUser) {
+            throw new common_1.BadRequestException('User already exists');
+        }
+        const finalPassword = data.password || 'ChangeMe!123';
+        const passwordHash = await bcrypt.hash(finalPassword, 10);
         return this.prisma.user.create({
             data: {
-                ...data,
-                password: hashedPassword,
+                email: data.email,
+                fullName: data.fullName,
+                department: data.department,
+                passwordHash,
+                mustChangePassword: true,
+                isActive: true,
             },
+            select: {
+                id: true,
+                email: true,
+                fullName: true,
+                department: true,
+                mustChangePassword: true,
+                isActive: true,
+                createdAt: true,
+            },
+        });
+    }
+    async findAll() {
+        return this.prisma.user.findMany({
+            select: {
+                id: true,
+                email: true,
+                fullName: true,
+                department: true,
+                isActive: true,
+                createdAt: true,
+                roles: {
+                    select: {
+                        role: {
+                            select: {
+                                name: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+    async update(id, data) {
+        return this.prisma.user.update({
+            where: { id },
+            data,
         });
     }
 };

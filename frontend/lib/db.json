@@ -1,0 +1,148 @@
+{
+    "users": [
+        {
+            "id": "u1",
+            "username": "admin",
+            "password": "password",
+            "name": "Admin User",
+            "role": "ADMIN"
+        },
+        {
+            "id": "u2",
+            "username": "manager",
+            "password": "password",
+            "name": "Inventory Manager",
+            "role": "MANAGER"
+        },
+        {
+            "id": "u3",
+            "username": "staff",
+            "password": "password",
+            "name": "Floor Staff",
+            "role": "STAFF"
+        },
+        {
+            "id": "u4",
+            "username": "jon",
+            "password": "password",
+            "name": "Jon Monday",
+            "role": "MANAGER"
+        }
+    ],
+    "items": [
+        {
+            "id": "i1",
+            "sku": "LAP-001",
+            "name": "MacBook Pro 16\"",
+            "categoryId": "c1",
+            "uomId": "pcs",
+            "reorderLevel": 5,
+            "discontinued": false,
+            "snapshots": [
+                {
+                    "locationId": "loc1",
+                    "quantity": 10
+                },
+                {
+                    "locationId": "loc2",
+                    "quantity": 5
+                }
+            ]
+        },
+        {
+            "id": "i2",
+            "sku": "MON-001",
+            "name": "Dell UltraSharp 27\"",
+            "categoryId": "c1",
+            "uomId": "pcs",
+            "reorderLevel": 10,
+            "discontinued": false,
+            "snapshots": [
+                {
+                    "locationId": "loc1",
+                    "quantity": 25
+                }
+            ]
+        },
+        {
+            "id": "i3",
+            "sku": "DES-001",
+            "name": "Standing Desk 60x30",
+            "categoryId": "c2",
+            "uomId": "pcs",
+            "reorderLevel": 3,
+            "discontinued": false,
+            "snapshots": [
+                {
+                    "locationId": "loc1",
+                    "quantity": 8
+                },
+                {
+                    "locationId": "loc3",
+                    "quantity": 2
+                }
+            ]
+        }
+    ],
+    "categories": [
+        {
+            "id": "c1",
+            "name": "Electronics"
+        },
+        {
+            "id": "c2",
+            "name": "Furniture"
+        }
+    ],
+    "uoms": [
+        {
+            "id": "pcs",
+            "name": "Pieces"
+        }
+    ],
+    "locations": [
+        {
+            "id": "loc1",
+            "name": "Main Warehouse",
+            "type": "WAREHOUSE"
+        },
+        {
+            "id": "loc2",
+            "name": "IT Storage Room",
+            "type": "STORAGE"
+        },
+        {
+            "id": "loc3",
+            "name": "Finance Office",
+            "type": "OFFICE"
+        }
+    ],
+    "requests": [
+        {
+            "id": "r1",
+            "type": "REASSIGNMENT",
+            "status": "PENDING",
+            "requesterId": "u3",
+            "itemId": "i1",
+            "quantity": 2,
+            "fromLocationId": "loc1",
+            "toLocationId": "loc3",
+            "createdAt": "2024-01-15T10:00:00Z"
+        }
+    ],
+    "ledger": [
+        {
+            "id": "l1",
+            "itemId": "i1",
+            "movementType": "RECEIVE",
+            "quantity": 15,
+            "toLocationId": "loc1",
+            "reasonCode": {
+                "code": "INITIAL"
+            },
+            "referenceNo": "REF-001",
+            "userId": "u1",
+            "createdAt": "2024-01-01T09:00:00Z"
+        }
+    ]
+}

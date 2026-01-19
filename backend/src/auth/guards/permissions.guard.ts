@@ -1,13 +1,13 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
-import { UsersService } from '../../users/users.service';
+import { AuthService } from '../auth.service';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
     constructor(
         private reflector: Reflector,
-        private usersService: UsersService,
+        private authService: AuthService,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -23,7 +23,7 @@ export class PermissionsGuard implements CanActivate {
 
         // Fast check for SuperAdmin role bypass (optional but common)
         // For now, we check strict permissions
-        const userPermissions = await this.usersService.findPermissions(user.id);
+        const userPermissions = await this.authService.findPermissions(user.id);
 
         const hasPermission = requiredPermissions.every((permission) =>
             userPermissions.includes(permission),

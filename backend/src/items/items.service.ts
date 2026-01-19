@@ -5,16 +5,28 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ItemsService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll() {
+    async findAll(filters?: {
+        categoryId?: string;
+        status?: string;
+        search?: string;
+    }) {
         return this.prisma.item.findMany({
+            where: {
+                ...(filters?.categoryId && { categoryId: filters.categoryId }),
+                ...(filters?.status && { status: filters.status }),
+                ...(filters?.search && {
+                    OR: [
+                        { code: { contains: filters.search } },
+                        { name: { contains: filters.search } },
+                        { description: { contains: filters.search } },
+                    ],
+                }),
+            },
             include: {
                 category: true,
-                uom: true,
-                snapshots: {
-                    include: {
-                        location: true,
-                    }
-                }
+            },
+            orderBy: {
+                code: 'asc',
             },
         });
     }
@@ -24,22 +36,70 @@ export class ItemsService {
             where: { id },
             include: {
                 category: true,
-                uom: true,
-                snapshots: true,
+                stockSnapshots: {
+                    include: {
+                        location: true,
+                    },
+                },
             },
         });
     }
 
-    async create(data: any) {
+    async create(data: {
+        code: string;
+        name: string;
+        description?: string;
+        categoryId: string;
+        unitOfMeasure: string;
+        reorderLevel?: number;
+        reorderQuantity?: number;
+    }) {
         return this.prisma.item.create({
-            data,
+            data: {
+                ...data,
+                status: 'ACTIVE',
+            },
+            include: {
+                category: true,
+            },
         });
     }
 
-    async update(id: string, data: any) {
+    async update(
+        id: string,
+        data: {
+            name?: string;
+            description?: string;
+            categoryId?: string;
+            unitOfMeasure?: string;
+            status?: string;
+            reorderLevel?: number;
+            reorderQuantity?: number;
+        },
+    ) {
         return this.prisma.item.update({
             where: { id },
             data,
+            include: {
+                category: true,
+            },
+        });
+    }
+
+    async delete(id: string) {
+        // Soft delete by marking as discontinued
+        return this.prisma.item.update({
+            where: { id },
+            data: { status: 'DISCONTINUED' },
+        });
+    }
+
+    async getStockLevels(itemId: string) {
+        return this.prisma.stockSnapshot.findMany({
+            where: { itemId },
+            include: {
+                location: true,
+            },
         });
     }
 }

@@ -1,17 +1,23 @@
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
+import { PrismaService } from '../prisma/prisma.service';
 export declare class AuthService {
-    private usersService;
+    private prisma;
     private jwtService;
-    constructor(usersService: UsersService, jwtService: JwtService);
-    validateUser(email: string, pass: string): Promise<any>;
+    constructor(prisma: PrismaService, jwtService: JwtService);
+    validateUser(email: string, password: string): Promise<any>;
     login(user: any): Promise<{
         access_token: string;
         user: {
             id: any;
             email: any;
-            name: any;
+            fullName: any;
+            department: any;
+            mustChangePassword: any;
             roles: any;
         };
     }>;
+    changePassword(userId: string, newPassword: string): Promise<{
+        message: string;
+    }>;
+    findPermissions(userId: string): Promise<string[]>;
 }

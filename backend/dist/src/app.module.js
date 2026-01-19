@@ -9,16 +9,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const bullmq_1 = require("@nestjs/bullmq");
-const prisma_module_1 = require("./prisma/prisma.module");
+const core_1 = require("@nestjs/core");
 const auth_module_1 = require("./auth/auth.module");
-const users_module_1 = require("./users/users.module");
 const items_module_1 = require("./items/items.module");
-const ledger_module_1 = require("./ledger/ledger.module");
-const locations_module_1 = require("./locations/locations.module");
-const imports_module_1 = require("./imports/imports.module");
-const forecasting_module_1 = require("./forecasting/forecasting.module");
-const branding_module_1 = require("./branding/branding.module");
+const users_module_1 = require("./users/users.module");
+const prisma_module_1 = require("./prisma/prisma.module");
+const permissions_guard_1 = require("./common/guards/permissions.guard");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,25 +24,16 @@ exports.AppModule = AppModule = __decorate([
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
             }),
-            bullmq_1.BullModule.forRootAsync({
-                imports: [config_1.ConfigModule],
-                useFactory: async (configService) => ({
-                    connection: {
-                        host: configService.get('REDIS_HOST', 'localhost'),
-                        port: configService.get('REDIS_PORT', 6379),
-                    },
-                }),
-                inject: [config_1.ConfigService],
-            }),
             prisma_module_1.PrismaModule,
             auth_module_1.AuthModule,
-            users_module_1.UsersModule,
             items_module_1.ItemsModule,
-            ledger_module_1.LedgerModule,
-            locations_module_1.LocationsModule,
-            imports_module_1.ImportsModule,
-            forecasting_module_1.ForecastingModule,
-            branding_module_1.BrandingModule,
+            users_module_1.UsersModule,
+        ],
+        providers: [
+            {
+                provide: core_1.APP_GUARD,
+                useClass: permissions_guard_1.PermissionsGuard,
+            },
         ],
     })
 ], AppModule);

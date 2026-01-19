@@ -4,18 +4,22 @@ export declare class LocationsService {
     constructor(prisma: PrismaService);
     findAll(): Promise<{
         id: string;
-        description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        isActive: boolean;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.LocationType;
+        code: string;
+        type: string;
+        parentLocationId: string | null;
     }[]>;
     create(data: any): Promise<{
         id: string;
-        description: string | null;
-        name: string;
         createdAt: Date;
+        name: string;
+        isActive: boolean;
         updatedAt: Date;
-        type: import(".prisma/client").$Enums.LocationType;
+        code: string;
+        type: string;
+        parentLocationId: string | null;
     }>;
 }

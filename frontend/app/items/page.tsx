@@ -34,6 +34,17 @@ export default function ItemsPage() {
             }
         },
         { field: 'reorderLevel', headerName: 'Reorder Level', width: 120 },
+        {
+            headerName: 'Actions',
+            cellRenderer: (params: any) => (
+                <button
+                    onClick={() => alert(`Reassignment for ${params.data.name} coming soon!\nThis will create a REASSIGNMENT request in the system.`)}
+                    className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs hover:opacity-80"
+                >
+                    Reassign
+                </button>
+            )
+        },
         { field: 'discontinued', headerName: 'Status', cellRenderer: (params: any) => params.value ? 'Discontinued' : 'Active' },
     ], []);
 

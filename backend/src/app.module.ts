@@ -1,40 +1,35 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bullmq';
-import { PrismaModule } from './prisma/prisma.module';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
 import { ItemsModule } from './items/items.module';
-import { LedgerModule } from './ledger/ledger.module';
-import { LocationsModule } from './locations/locations.module';
-import { ImportsModule } from './imports/imports.module';
-import { ForecastingModule } from './forecasting/forecasting.module';
-import { BrandingModule } from './branding/branding.module';
+import { UsersModule } from './users/users.module';
+import { RequestsModule } from './requests/requests.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { StocktakeModule } from './stocktake/stocktake.module';
+import { ReportsModule } from './reports/reports.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-        },
-      }),
-      inject: [ConfigService],
-    }),
     PrismaModule,
     AuthModule,
-    UsersModule,
     ItemsModule,
-    LedgerModule,
-    LocationsModule,
-    ImportsModule,
-    ForecastingModule,
-    BrandingModule,
+    UsersModule,
+    RequestsModule,
+    InventoryModule,
+    StocktakeModule,
+    ReportsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
   ],
 })
 export class AppModule { }

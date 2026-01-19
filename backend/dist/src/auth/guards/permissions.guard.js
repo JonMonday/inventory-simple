@@ -13,13 +13,13 @@ exports.PermissionsGuard = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const permissions_decorator_1 = require("../decorators/permissions.decorator");
-const users_service_1 = require("../../users/users.service");
+const auth_service_1 = require("../auth.service");
 let PermissionsGuard = class PermissionsGuard {
     reflector;
-    usersService;
-    constructor(reflector, usersService) {
+    authService;
+    constructor(reflector, authService) {
         this.reflector = reflector;
-        this.usersService = usersService;
+        this.authService = authService;
     }
     async canActivate(context) {
         const requiredPermissions = this.reflector.getAllAndOverride(permissions_decorator_1.PERMISSIONS_KEY, [
@@ -32,7 +32,7 @@ let PermissionsGuard = class PermissionsGuard {
         const { user } = context.switchToHttp().getRequest();
         if (!user)
             return false;
-        const userPermissions = await this.usersService.findPermissions(user.id);
+        const userPermissions = await this.authService.findPermissions(user.id);
         const hasPermission = requiredPermissions.every((permission) => userPermissions.includes(permission));
         if (!hasPermission) {
             throw new common_1.ForbiddenException('Insufficient permissions');
@@ -44,6 +44,6 @@ exports.PermissionsGuard = PermissionsGuard;
 exports.PermissionsGuard = PermissionsGuard = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [core_1.Reflector,
-        users_service_1.UsersService])
+        auth_service_1.AuthService])
 ], PermissionsGuard);
 //# sourceMappingURL=permissions.guard.js.map

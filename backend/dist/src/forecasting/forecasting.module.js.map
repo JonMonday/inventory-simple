@@ -1,1 +1,0 @@
-{"version":3,"file":"forecasting.module.js","sourceRoot":"","sources":["../../../src/forecasting/forecasting.module.ts"],"names":[],"mappings":";;;;;;;;;AAAA,2CAAwC;AACxC,+DAA2D;AAMpD,IAAM,iBAAiB,GAAvB,MAAM,iBAAiB;CAAI,CAAA;AAArB,8CAAiB;4BAAjB,iBAAiB;IAJ7B,IAAA,eAAM,EAAC;QACJ,SAAS,EAAE,CAAC,wCAAkB,CAAC;QAC/B,OAAO,EAAE,CAAC,wCAAkB,CAAC;KAChC,CAAC;GACW,iBAAiB,CAAI"}

@@ -8,5 +8,6 @@ RUN npm install
 COPY . .
 
 RUN npm run build
+RUN ls -la .next
 
 CMD ["npm", "start"]
