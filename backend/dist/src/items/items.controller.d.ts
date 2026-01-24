@@ -11,6 +11,13 @@ export declare class ItemsController {
             updatedAt: Date;
             parentCategoryId: string | null;
         };
+        stockSnapshots: {
+            locationId: string;
+            itemId: string;
+            quantityOnHand: number;
+            reservedQuantity: number;
+            lastUpdatedAt: Date;
+        }[];
     } & {
         id: string;
         description: string | null;
@@ -40,14 +47,16 @@ export declare class ItemsController {
                 name: string;
                 isActive: boolean;
                 updatedAt: Date;
+                branchId: string;
                 code: string;
                 type: string;
                 parentLocationId: string | null;
             };
         } & {
-            itemId: string;
             locationId: string;
+            itemId: string;
             quantityOnHand: number;
+            reservedQuantity: number;
             lastUpdatedAt: Date;
         })[];
     } & {
@@ -143,14 +152,24 @@ export declare class ItemsController {
             name: string;
             isActive: boolean;
             updatedAt: Date;
+            branchId: string;
             code: string;
             type: string;
             parentLocationId: string | null;
         };
     } & {
-        itemId: string;
         locationId: string;
+        itemId: string;
         quantityOnHand: number;
+        reservedQuantity: number;
         lastUpdatedAt: Date;
     })[]>;
+    getCategories(): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        name: string;
+        updatedAt: Date;
+        parentCategoryId: string | null;
+    }[]>;
 }

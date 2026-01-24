@@ -24,9 +24,14 @@ let AuthController = class AuthController {
     async login(loginDto) {
         const user = await this.authService.validateUser(loginDto.email, loginDto.password);
         if (!user) {
-            return { message: 'Invalid credentials' };
+            throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        return this.authService.login(user);
+        const loginResponse = await this.authService.login(user);
+        const permissions = await this.authService.findPermissions(user.id);
+        return {
+            ...loginResponse,
+            permissions,
+        };
     }
     async changePassword(req, body) {
         return this.authService.changePassword(req.user.id, body.password);

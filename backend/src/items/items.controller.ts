@@ -12,9 +12,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ItemsService } from './items.service';
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Controller('items')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class ItemsController {
     constructor(private itemsService: ItemsService) { }
 
@@ -79,5 +80,11 @@ export class ItemsController {
     @Permissions('stock.read')
     async getStockLevels(@Param('id') id: string) {
         return this.itemsService.getStockLevels(id);
+    }
+
+    @Get('categories')
+    @Permissions('items.read')
+    async getCategories() {
+        return this.itemsService.findAllCategories();
     }
 }

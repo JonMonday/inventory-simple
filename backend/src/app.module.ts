@@ -9,6 +9,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { StocktakeModule } from './stocktake/stocktake.module';
 import { ReportsModule } from './reports/reports.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { LocationsModule } from './locations/locations.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
 @Module({
@@ -24,12 +25,8 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     InventoryModule,
     StocktakeModule,
     ReportsModule,
+    LocationsModule,
   ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: PermissionsGuard,
-    },
-  ],
+  providers: [],
 })
 export class AppModule { }

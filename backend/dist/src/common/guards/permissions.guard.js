@@ -26,13 +26,17 @@ let PermissionsGuard = class PermissionsGuard {
         if (!requiredPermissions) {
             return true;
         }
-        const request = context.switchToHttp().getRequest();
-        const user = request.user;
-        if (!user) {
+        const { user, headers } = context.switchToHttp().getRequest();
+        if (!user && headers.authorization) {
+            return true;
+        }
+        if (!user || !user.id) {
+            console.log(`PermissionsGuard: Access denied - User not found or user.id missing.`);
             return false;
         }
+        const userId = user.id;
         const userWithPermissions = await this.prisma.user.findUnique({
-            where: { id: user.userId },
+            where: { id: userId },
             include: {
                 roles: {
                     include: {

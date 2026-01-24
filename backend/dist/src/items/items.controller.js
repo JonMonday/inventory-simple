@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const items_service_1 = require("./items.service");
 const permissions_decorator_1 = require("../common/decorators/permissions.decorator");
+const permissions_guard_1 = require("../common/guards/permissions.guard");
 let ItemsController = class ItemsController {
     itemsService;
     constructor(itemsService) {
@@ -39,6 +40,9 @@ let ItemsController = class ItemsController {
     }
     async getStockLevels(id) {
         return this.itemsService.getStockLevels(id);
+    }
+    async getCategories() {
+        return this.itemsService.findAllCategories();
     }
 };
 exports.ItemsController = ItemsController;
@@ -93,9 +97,16 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ItemsController.prototype, "getStockLevels", null);
+__decorate([
+    (0, common_1.Get)('categories'),
+    (0, permissions_decorator_1.Permissions)('items.read'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ItemsController.prototype, "getCategories", null);
 exports.ItemsController = ItemsController = __decorate([
     (0, common_1.Controller)('items'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     __metadata("design:paramtypes", [items_service_1.ItemsService])
 ], ItemsController);
 //# sourceMappingURL=items.controller.js.map

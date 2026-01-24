@@ -32,6 +32,7 @@ let ItemsService = class ItemsService {
             },
             include: {
                 category: true,
+                stockSnapshots: true,
             },
             orderBy: {
                 code: 'asc',
@@ -83,6 +84,11 @@ let ItemsService = class ItemsService {
             include: {
                 location: true,
             },
+        });
+    }
+    async findAllCategories() {
+        return this.prisma.category.findMany({
+            orderBy: { name: 'asc' },
         });
     }
 };

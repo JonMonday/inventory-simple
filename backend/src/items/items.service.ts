@@ -24,6 +24,7 @@ export class ItemsService {
             },
             include: {
                 category: true,
+                stockSnapshots: true,
             },
             orderBy: {
                 code: 'asc',
@@ -100,6 +101,12 @@ export class ItemsService {
             include: {
                 location: true,
             },
+        });
+    }
+
+    async findAllCategories() {
+        return this.prisma.category.findMany({
+            orderBy: { name: 'asc' },
         });
     }
 }

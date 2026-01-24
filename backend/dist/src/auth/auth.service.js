@@ -129,11 +129,11 @@ let AuthService = class AuthService {
         }
         const permissionSet = new Set();
         user.permissions.forEach((up) => {
-            permissionSet.add(`${up.permission.resource}:${up.permission.action}`);
+            permissionSet.add(`${up.permission.resource}.${up.permission.action}`);
         });
         user.roles.forEach((ur) => {
             ur.role.permissions.forEach((rp) => {
-                permissionSet.add(`${rp.permission.resource}:${rp.permission.action}`);
+                permissionSet.add(`${rp.permission.resource}.${rp.permission.action}`);
             });
         });
         return Array.from(permissionSet);

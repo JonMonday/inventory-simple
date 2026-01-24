@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const users_service_1 = require("./users.service");
 const permissions_decorator_1 = require("../common/decorators/permissions.decorator");
+const permissions_guard_1 = require("../common/guards/permissions.guard");
 let UsersController = class UsersController {
     usersService;
     constructor(usersService) {
@@ -27,6 +28,12 @@ let UsersController = class UsersController {
     }
     async findAll() {
         return this.usersService.findAll();
+    }
+    async findAllRoles() {
+        return this.usersService.findAllRoles();
+    }
+    async findOne(id) {
+        return this.usersService.findOne(id);
     }
     async update(id, updateDto) {
         return this.usersService.update(id, updateDto);
@@ -49,7 +56,22 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "findAll", null);
 __decorate([
-    (0, common_1.Put)(':id'),
+    (0, common_1.Get)('roles'),
+    (0, permissions_decorator_1.Permissions)('roles.manage'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "findAllRoles", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    (0, permissions_decorator_1.Permissions)('users.read'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
     (0, permissions_decorator_1.Permissions)('users.update'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -59,7 +81,7 @@ __decorate([
 ], UsersController.prototype, "update", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.Controller)('users'),
-    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt')),
+    (0, common_1.UseGuards)((0, passport_1.AuthGuard)('jwt'), permissions_guard_1.PermissionsGuard),
     __metadata("design:paramtypes", [users_service_1.UsersService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

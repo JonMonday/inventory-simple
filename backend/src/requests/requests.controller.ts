@@ -3,9 +3,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { RequestsService } from './requests.service';
 import { CreateRequestDto, UpdateRequestLinesDto, ReassignRequestDto } from './dto/request.dto';
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Controller('requests')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class RequestsController {
     constructor(private readonly requestsService: RequestsService) { }
 
@@ -18,7 +19,7 @@ export class RequestsController {
     @Get()
     @Permissions('requests.read')
     async findAll(@Req() req: any) {
-        const isAdmin = req.user.roles.includes('ADMIN');
+        const isAdmin = req.user.roles.includes('SuperAdmin') || req.user.roles.includes('InventoryAdmin');
         return this.requestsService.findAll(req.user.id, isAdmin ? 'ADMIN' : undefined);
     }
 
@@ -35,7 +36,7 @@ export class RequestsController {
     }
 
     @Post(':id/start-review')
-    @Permissions('requests.review')
+    @Permissions('requests.review.start')
     async startReview(@Param('id') id: string, @Req() req: any) {
         return this.requestsService.startReview(id, req.user.id);
     }
@@ -47,7 +48,7 @@ export class RequestsController {
     }
 
     @Post(':id/send-to-approval')
-    @Permissions('requests.review')
+    @Permissions('requests.sendToApproval')
     async sendToApproval(@Param('id') id: string, @Req() req: any, @Body('issueFromLocationId') issueFromLocationId?: string) {
         return this.requestsService.sendToApproval(id, req.user.id, issueFromLocationId);
     }
@@ -61,14 +62,13 @@ export class RequestsController {
     @Post(':id/reject')
     @Permissions('requests.approve')
     async reject(@Param('id') id: string, @Req() req: any) {
-        // Basic rejection logic: move to REJECTED and log
-        return this.requestsService.approve(id, req.user.id); // Placeholder for reject if logic is similar but status changed
+        return this.requestsService.reject(id, req.user.id);
     }
 
     @Post(':id/reassign')
     @Permissions('requests.reassign')
     async reassign(@Param('id') id: string, @Req() req: any, @Body() dto: ReassignRequestDto) {
-        const isAdmin = req.user.roles.includes('ADMIN');
+        const isAdmin = req.user.roles.includes('SuperAdmin') || req.user.roles.includes('InventoryAdmin');
         return this.requestsService.reassign(id, req.user.id, isAdmin, dto);
     }
 
@@ -76,5 +76,17 @@ export class RequestsController {
     @Permissions('requests.fulfill')
     async fulfill(@Param('id') id: string, @Req() req: any) {
         return this.requestsService.fulfill(id, req.user.id);
+    }
+
+    @Post(':id/cancel')
+    @Permissions('requests.create') // The requester or someone with create perm can cancel? Usually requester. Or separate CANCEL perm.
+    async cancel(@Param('id') id: string, @Req() req: any) {
+        return this.requestsService.cancel(id, req.user.id);
+    }
+
+    @Post(':id/revert-to-review')
+    @Permissions('requests.review.start')
+    async revertToReview(@Param('id') id: string, @Req() req: any) {
+        return this.requestsService.revertToReview(id, req.user.id);
     }
 }

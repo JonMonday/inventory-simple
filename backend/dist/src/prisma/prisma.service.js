@@ -15,7 +15,8 @@ const client_1 = require("@prisma/client");
 const adapter_better_sqlite3_1 = require("@prisma/adapter-better-sqlite3");
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        const adapter = new adapter_better_sqlite3_1.PrismaBetterSqlite3({ url: 'file:./prisma/dev.db' });
+        const url = process.env.DATABASE_URL || 'file:./dev.db';
+        const adapter = new adapter_better_sqlite3_1.PrismaBetterSqlite3({ url: url.replace('file:', '') });
         super({ adapter });
     }
     async onModuleInit() {

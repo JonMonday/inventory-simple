@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 
@@ -15,10 +15,16 @@ export class AuthController {
         );
 
         if (!user) {
-            return { message: 'Invalid credentials' };
+            throw new UnauthorizedException('Invalid credentials');
         }
 
-        return this.authService.login(user);
+        const loginResponse = await this.authService.login(user);
+        const permissions = await this.authService.findPermissions(user.id);
+
+        return {
+            ...loginResponse,
+            permissions,
+        };
     }
 
     @Post('change-password')

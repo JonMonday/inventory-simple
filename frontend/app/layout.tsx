@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
 import Providers from "@/components/providers";
+import { AppLayout } from "@/components/app-layout";
+import { Toaster } from "@/components/ui/sonner";
 
 const interSans = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
 
@@ -16,15 +17,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body style={{ fontFamily: interSans }}>
         <Providers>
-          <div className="flex">
-            <Sidebar />
-            <main className="flex-1 min-h-screen bg-background">
-              {children}
-            </main>
-          </div>
+          <AppLayout>{children}</AppLayout>
+          <Toaster position="top-right" />
         </Providers>
       </body>
     </html>

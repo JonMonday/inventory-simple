@@ -40,6 +40,10 @@ export class ReassignRequestDto {
 
     @IsString()
     @IsOptional()
+    newLocationId?: string;
+
+    @IsString()
+    @IsOptional()
     reason?: string;
 }
 

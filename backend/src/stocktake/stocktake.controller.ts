@@ -3,9 +3,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { StocktakeService } from './stocktake.service';
 import { CreateStocktakeDto, SubmitStocktakeCountDto } from './dto/stocktake.dto';
 import { Permissions } from '../common/decorators/permissions.decorator';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
 
 @Controller('stocktakes')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class StocktakeController {
     constructor(private readonly stocktakeService: StocktakeService) { }
 
@@ -16,13 +17,13 @@ export class StocktakeController {
     }
 
     @Post(':id/start-count')
-    @Permissions('stocktake.create')
+    @Permissions('stocktake.startCount')
     async startCounting(@Param('id') id: string, @Req() req: any) {
         return this.stocktakeService.startCounting(id, req.user.id);
     }
 
     @Post(':id/submit-count')
-    @Permissions('stocktake.submit')
+    @Permissions('stocktake.submitCount')
     async submitCount(@Param('id') id: string, @Req() req: any, @Body() dto: SubmitStocktakeCountDto) {
         return this.stocktakeService.submitCount(id, req.user.id, dto);
     }
@@ -43,5 +44,11 @@ export class StocktakeController {
     @Permissions('stocktake.read')
     async findOne(@Param('id') id: string) {
         return this.stocktakeService.findOne(id);
+    }
+
+    @Get()
+    @Permissions('stocktake.read')
+    async findAll() {
+        return this.stocktakeService.findAll();
     }
 }

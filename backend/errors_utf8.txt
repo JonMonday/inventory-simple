@@ -1,8 +1,0 @@
-﻿src/auth/auth.controller.ts(12,17): error TS7006: Parameter 'req' implicitly has an 'any' type.
-src/auth/auth.controller.ts(18,16): error TS7006: Parameter 'req' implicitly has an 'any' type.
-src/imports/imports.controller.ts(16,70): error TS7006: Parameter 'req' implicitly has an 'any' type.
-src/imports/imports.processor.ts(24,38): error TS2345: Argument of type 'Buffer<ArrayBuffer>' is not assignable to parameter of type 'Buffer'.
-  The types of 'slice(...)[Symbol.toStringTag]' are incompatible between these types.
-    Type '"Uint8Array"' is not assignable to type '"ArrayBuffer"'.
-src/imports/imports.processor.ts(126,42): error TS2531: Object is possibly 'null'.
-src/ledger/ledger.controller.ts(14,31): error TS7006: Parameter 'req' implicitly has an 'any' type.

@@ -5,15 +5,19 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ReportsService {
     constructor(private prisma: PrismaService) { }
 
-    async getStockOnHand(locationId?: string) {
+    async getStockOnHand(query: { locationId?: string, skip?: number, take?: number, sortBy?: string, order?: 'asc' | 'desc' }) {
+        const { locationId, skip = 0, take = 50, sortBy = 'lastUpdatedAt', order = 'desc' } = query;
         return this.prisma.stockSnapshot.findMany({
             where: locationId ? { locationId } : {},
             include: { item: true, location: true },
-            orderBy: { lastUpdatedAt: 'desc' }
+            orderBy: { [sortBy]: order },
+            skip: Number(skip),
+            take: Number(take),
         });
     }
 
-    async getMovements(filters: { fromDate?: string, toDate?: string, itemId?: string, locationId?: string }) {
+    async getMovements(filters: { fromDate?: string, toDate?: string, itemId?: string, locationId?: string, skip?: number, take?: number, sortBy?: string, order?: 'asc' | 'desc' }) {
+        const { skip = 0, take = 50, sortBy = 'createdAtUtc', order = 'desc' } = filters;
         const where: any = {};
         if (filters.fromDate) where.createdAtUtc = { gte: new Date(filters.fromDate) };
         if (filters.toDate) where.createdAtUtc = { ...where.createdAtUtc, lte: new Date(filters.toDate) };
@@ -28,8 +32,9 @@ export class ReportsService {
         return this.prisma.inventoryLedger.findMany({
             where,
             include: { item: true, reasonCode: true, createdBy: true },
-            orderBy: { createdAtUtc: 'desc' },
-            take: 100 // Cap for now
+            orderBy: { [sortBy]: order },
+            skip: Number(skip),
+            take: Number(take),
         });
     }
 
@@ -62,5 +67,27 @@ export class ReportsService {
             fulfillmentRate: total ? (fulfilled / total) * 100 : 0,
             rejectedCount: rejected
         };
+    }
+
+    async getAdjustmentsSummary(query: { fromDate?: string, toDate?: string }) {
+        const where: any = { movementType: { in: ['ADJUSTMENT', 'REVERSAL'] } };
+        if (query.fromDate) where.createdAtUtc = { gte: new Date(query.fromDate) };
+        if (query.toDate) where.createdAtUtc = { ...where.createdAtUtc, lte: new Date(query.toDate) };
+
+        const adjustments = await this.prisma.inventoryLedger.findMany({
+            where,
+            include: { reasonCode: true, item: true },
+        });
+
+        // Group by reason code
+        const summary = adjustments.reduce((acc: any, curr) => {
+            const key = curr.reasonCode.name;
+            if (!acc[key]) acc[key] = { count: 0, totalAbsQty: 0, reason: key };
+            acc[key].count++;
+            acc[key].totalAbsQty += Math.abs(curr.quantity);
+            return acc;
+        }, {});
+
+        return Object.values(summary);
     }
 }

@@ -58,13 +58,26 @@ let UsersService = class UsersService {
         if (existingUser) {
             throw new common_1.BadRequestException('User already exists');
         }
+        if (data.locationId) {
+            const loc = await this.prisma.location.findUnique({ where: { id: data.locationId } });
+            if (!loc || loc.type === 'DEPARTMENT') {
+                throw new common_1.BadRequestException('Personal location cannot be of type DEPARTMENT');
+            }
+        }
+        if (data.departmentId) {
+            const dept = await this.prisma.location.findUnique({ where: { id: data.departmentId } });
+            if (!dept || dept.type !== 'DEPARTMENT') {
+                throw new common_1.BadRequestException('Department ID must point to a location of type DEPARTMENT');
+            }
+        }
         const finalPassword = data.password || 'ChangeMe!123';
         const passwordHash = await bcrypt.hash(finalPassword, 10);
-        return this.prisma.user.create({
+        const user = await this.prisma.user.create({
             data: {
                 email: data.email,
                 fullName: data.fullName,
-                department: data.department,
+                locationId: data.locationId,
+                departmentId: data.departmentId,
                 passwordHash,
                 mustChangePassword: true,
                 isActive: true,
@@ -73,12 +86,27 @@ let UsersService = class UsersService {
                 id: true,
                 email: true,
                 fullName: true,
-                department: true,
+                locationId: true,
+                departmentId: true,
                 mustChangePassword: true,
                 isActive: true,
                 createdAt: true,
+                roles: {
+                    select: {
+                        role: { select: { name: true } }
+                    }
+                }
             },
         });
+        if (data.roleIds?.length) {
+            await this.prisma.userRole.createMany({
+                data: data.roleIds.map(roleId => ({
+                    userId: user.id,
+                    roleId,
+                })),
+            });
+        }
+        return user;
     }
     async findAll() {
         return this.prisma.user.findMany({
@@ -86,13 +114,43 @@ let UsersService = class UsersService {
                 id: true,
                 email: true,
                 fullName: true,
-                department: true,
+                locationId: true,
+                departmentId: true,
                 isActive: true,
                 createdAt: true,
+                location: { select: { name: true, type: true } },
+                department: { select: { name: true, type: true } },
                 roles: {
                     select: {
                         role: {
                             select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+    async findOne(id) {
+        return this.prisma.user.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                email: true,
+                fullName: true,
+                locationId: true,
+                departmentId: true,
+                isActive: true,
+                createdAt: true,
+                location: { select: { id: true, name: true, type: true } },
+                department: { select: { id: true, name: true, type: true } },
+                roles: {
+                    select: {
+                        role: {
+                            select: {
+                                id: true,
                                 name: true,
                             },
                         },
@@ -102,9 +160,47 @@ let UsersService = class UsersService {
         });
     }
     async update(id, data) {
-        return this.prisma.user.update({
+        const { roleIds, ...updateData } = data;
+        if (data.locationId) {
+            const loc = await this.prisma.location.findUnique({ where: { id: data.locationId } });
+            if (!loc || loc.type === 'DEPARTMENT') {
+                throw new common_1.BadRequestException('Personal location cannot be of type DEPARTMENT');
+            }
+        }
+        if (data.departmentId) {
+            const dept = await this.prisma.location.findUnique({ where: { id: data.departmentId } });
+            if (!dept || dept.type !== 'DEPARTMENT') {
+                throw new common_1.BadRequestException('Department ID must point to a location of type DEPARTMENT');
+            }
+        }
+        const user = await this.prisma.user.update({
             where: { id },
-            data,
+            data: updateData,
+        });
+        if (roleIds !== undefined) {
+            await this.prisma.userRole.deleteMany({ where: { userId: id } });
+            if (roleIds.length) {
+                await this.prisma.userRole.createMany({
+                    data: roleIds.map(roleId => ({
+                        userId: id,
+                        roleId,
+                    })),
+                });
+            }
+        }
+        return user;
+    }
+    async findAllRoles() {
+        return this.prisma.role.findMany({
+            orderBy: { name: 'asc' },
+        });
+    }
+    async assignRole(userId, roleId) {
+        return this.prisma.userRole.create({
+            data: {
+                userId,
+                roleId,
+            },
         });
     }
 };

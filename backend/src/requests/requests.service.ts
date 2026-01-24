@@ -1,4 +1,9 @@
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { ReservationService } from '../inventory/reservation.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { CreateRequestDto, UpdateRequestLinesDto, ReassignRequestDto, RequestStatus } from './dto/request.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RequestsService {
@@ -9,7 +14,7 @@ export class RequestsService {
     ) { }
 
     async create(userId: string, dto: CreateRequestDto) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             // 1. Atomic ID Generation (Year-Aware)
             const year = new Date().getFullYear();
             const sequence = await tx.systemSequence.upsert({
@@ -35,7 +40,7 @@ export class RequestsService {
                     requesterUserId: userId,
                     status: RequestStatus.DRAFT,
                     lines: {
-                        create: dto.lines.map((line) => ({
+                        create: dto.lines.map((line: any) => ({
                             itemId: line.itemId,
                             quantity: line.quantity,
                         })),
@@ -58,7 +63,7 @@ export class RequestsService {
     }
 
     async submit(id: string, userId: string) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({
                 where: { id },
                 include: { requester: true, lines: true },
@@ -124,7 +129,7 @@ export class RequestsService {
     }
 
     async startReview(id: string, userId: string) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({ where: { id } });
             if (!request) throw new NotFoundException('Request not found');
             if (request.status !== RequestStatus.SUBMITTED) {
@@ -156,7 +161,7 @@ export class RequestsService {
     }
 
     async refactor(id: string, userId: string, dto: UpdateRequestLinesDto) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({
                 where: { id },
                 include: { lines: true },
@@ -177,7 +182,7 @@ export class RequestsService {
                 where: { id },
                 data: {
                     lines: {
-                        create: dto.lines.map(l => ({
+                        create: dto.lines.map((l: any) => ({
                             itemId: l.itemId,
                             quantity: l.quantity,
                         }))
@@ -204,7 +209,7 @@ export class RequestsService {
      * Creates reservations for all lines.
      */
     async sendToApproval(id: string, userId: string, issueFromLocationId?: string) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
             if (!request) throw new NotFoundException('Request not found');
 
@@ -245,10 +250,10 @@ export class RequestsService {
     }
 
     async reassign(id: string, actorId: string, isAdmin: boolean, dto: ReassignRequestDto) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({
                 where: { id },
-                include: { assignments: { where: { isActive: true } } }
+                include: { assignments: { where: { isActive: true } }, lines: true }
             });
             if (!request) throw new NotFoundException('Request not found');
 
@@ -257,23 +262,42 @@ export class RequestsService {
                 throw new ForbiddenException('Only the requester or an administrator can reassign a request');
             }
 
-            const activeAssignment = request.assignments[0];
-            if (!activeAssignment) {
-                throw new BadRequestException('Request is not currently assigned to anyone');
+            // Handle Location Change if provided
+            if (dto.newLocationId && dto.newLocationId !== request.issueFromLocationId) {
+                // Release existing reservations if they exist
+                for (const line of request.lines) {
+                    await this.reservationService.release(tx, line.id);
+                }
+
+                // Update location
+                await tx.request.update({
+                    where: { id },
+                    data: { issueFromLocationId: dto.newLocationId }
+                });
+
+                // Re-reserve at new location if it was in APPROVAL or APPROVED state
+                if (request.status === RequestStatus.IN_APPROVAL || request.status === RequestStatus.APPROVED) {
+                    for (const line of request.lines) {
+                        await this.reservationService.reserve(tx, line.id, line.itemId, dto.newLocationId, line.quantity);
+                    }
+                }
             }
 
-            // Deactivate current
-            await tx.requestAssignment.update({
-                where: { id: activeAssignment.id },
-                data: { isActive: false, completedAt: new Date() }
-            });
+            const activeAssignment = request.assignments[0];
+            if (activeAssignment) {
+                // Deactivate current
+                await tx.requestAssignment.update({
+                    where: { id: activeAssignment.id },
+                    data: { isActive: false, completedAt: new Date() }
+                });
+            }
 
             // Create new
             await tx.requestAssignment.create({
                 data: {
                     requestId: id,
                     userId: dto.newUserId,
-                    level: activeAssignment.level,
+                    level: activeAssignment?.level || 'REVIEW',
                     isActive: true
                 }
             });
@@ -284,8 +308,7 @@ export class RequestsService {
                     requestId: id,
                     userId: actorId,
                     type: 'REASSIGNMENT',
-                    description: `Reassigned from user ${activeAssignment.userId} to ${dto.newUserId} by ${actorId}.`,
-                    dataJson: JSON.stringify({ from: activeAssignment.userId, to: dto.newUserId, reason: dto.reason })
+                    description: `Reassigned to ${dto.newUserId}. Reason: ${dto.reason || 'None'}`,
                 }
             });
 
@@ -293,8 +316,60 @@ export class RequestsService {
         });
     }
 
+    async revertToReview(id: string, userId: string) {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
+            if (!request) throw new NotFoundException('Request not found');
+
+            // Release Reservations
+            for (const line of request.lines) {
+                await this.reservationService.release(tx, line.id);
+            }
+
+            await tx.request.update({
+                where: { id },
+                data: {
+                    status: RequestStatus.IN_REVIEW,
+                    events: {
+                        create: {
+                            userId,
+                            type: 'STATUS_CHANGE',
+                            description: 'Reverted to review. Reservations released.',
+                        }
+                    }
+                }
+            });
+        });
+    }
+
+    async cancel(id: string, userId: string) {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
+            if (!request) throw new NotFoundException('Request not found');
+
+            // Release Reservations
+            for (const line of request.lines) {
+                await this.reservationService.release(tx, line.id);
+            }
+
+            await tx.request.update({
+                where: { id },
+                data: {
+                    status: RequestStatus.CANCELLED,
+                    events: {
+                        create: {
+                            userId,
+                            type: 'STATUS_CHANGE',
+                            description: 'Request cancelled. Reservations released.',
+                        }
+                    }
+                }
+            });
+        });
+    }
+
     async approve(id: string, userId: string) {
-        return this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             await tx.request.update({
                 where: { id },
                 data: {
@@ -314,68 +389,117 @@ export class RequestsService {
         });
     }
 
-    async fulfill(id: string, userId: string) {
-        return this.prisma.$transaction(async (tx) => {
+    async reject(id: string, userId: string) {
+        return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const request = await tx.request.findUnique({
                 where: { id },
                 include: { lines: true }
             });
-
             if (!request) throw new NotFoundException('Request not found');
-            if (request.status !== RequestStatus.APPROVED) {
-                throw new BadRequestException('Only APPROVED requests can be fulfilled');
-            }
-            if (!request.issueFromLocationId) {
-                throw new BadRequestException('System Logic Error: Request is approved but has no issue location');
-            }
 
-            // 1. Commit Reservations & Issue Stock
-            // Note: Availability was checked at Reservation time. 
-            // However, physical stock could have been lost (broken/stolen) -> adjustments.
-            // But logic says: "If any line cannot be fulfilled, [...] request reverts".
-            // Since we have reservations, "available" stock is protected.
-            // So we just need to ensure onHand >= quantity (which it should be if reserved).
-            // Actually, we trust the reservation system?
-            // Let's rely on ReservationService.commit + Ledger Issue.
-
+            // 1. Release Reservations if they exist (usually after sendToApproval)
             for (const line of request.lines) {
-                // 1. Commit Reservation (Release reserved qty, do not touch OnHand)
-                await this.reservationService.commit(tx, line.id);
-
-                // 2. Issue Stock (Ledger + OnHand)
-                const reasonCode = await tx.reasonCode.findFirst({
-                    where: { movementType: 'ISSUE', isActive: true } // Should user select this? Defaulting for now.
-                });
-                if (!reasonCode) throw new BadRequestException('No active ISSUE reason code found for fulfillment');
-
-                await this.inventoryService.recordMovement(tx, {
-                    itemId: line.itemId,
-                    locationId: request.issueFromLocationId,
-                    relatedLocationId: request.departmentId, // Requesting Dept
-                    movementType: 'ISSUE',
-                    quantity: line.quantity, // Positive quantity for issue
-                    reasonCodeId: reasonCode.id,
-                    referenceNo: request.readableId,
-                    userId,
-                    comments: 'Request Fulfilled'
-                });
+                await this.reservationService.release(tx, line.id);
             }
 
+            // 2. Update Status
             await tx.request.update({
                 where: { id },
                 data: {
-                    status: RequestStatus.FULFILLED,
+                    status: RequestStatus.REJECTED,
+                    assignments: {
+                        updateMany: { where: { requestId: id, isActive: true }, data: { isActive: false, completedAt: new Date() } }
+                    },
                     events: {
                         create: {
                             userId,
-                            type: 'FULFILLED',
-                            description: 'Request fulfilled and stock issued.',
+                            type: 'STATUS_CHANGE',
+                            description: 'Request rejected. Reservations released.',
                         }
                     }
                 }
             });
-
-            return { success: true };
         });
+    }
+
+    async fulfill(id: string, userId: string) {
+        try {
+            return await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+                const request = await tx.request.findUnique({
+                    where: { id },
+                    include: { lines: true }
+                });
+
+                if (!request) throw new NotFoundException('Request not found');
+                if (request.status !== RequestStatus.APPROVED) {
+                    throw new BadRequestException('Only APPROVED requests can be fulfilled');
+                }
+                if (!request.issueFromLocationId) {
+                    throw new BadRequestException('System Logic Error: Request is approved but has no issue location');
+                }
+
+                for (const line of request.lines) {
+                    // 1. Commit Reservation (Release reserved qty)
+                    await this.reservationService.commit(tx, line.id);
+
+                    // 2. Issue Stock (Ledger + OnHand)
+                    const reasonCode = await tx.reasonCode.findFirst({
+                        where: {
+                            isActive: true,
+                            allowedMovements: { some: { movementType: 'ISSUE' } }
+                        }
+                    });
+                    if (!reasonCode) throw new BadRequestException('No active ISSUE reason code found for fulfillment');
+
+                    await this.inventoryService.recordMovement(tx, {
+                        itemId: line.itemId,
+                        locationId: request.issueFromLocationId!,
+                        relatedLocationId: request.departmentId ?? undefined,
+                        movementType: 'ISSUE',
+                        quantity: line.quantity,
+                        reasonCodeId: reasonCode.id,
+                        referenceNo: request.readableId,
+                        userId,
+                        comments: 'Request Fulfilled'
+                    });
+                }
+
+                await tx.request.update({
+                    where: { id },
+                    data: {
+                        status: RequestStatus.FULFILLED,
+                        events: {
+                            create: {
+                                userId,
+                                type: 'FULFILLED',
+                                description: 'Request fulfilled and stock issued.',
+                            }
+                        }
+                    }
+                });
+
+                return { success: true };
+            });
+        } catch (error) {
+            // Handle Rollback Requirement: If any line fails, the transaction auto-rolls back.
+            // But the user wants the request to revert to IN_REVIEW.
+            // So we perform a separate transaction to update status and log error.
+            if (!(error instanceof NotFoundException)) {
+                await this.prisma.request.update({
+                    where: { id },
+                    data: {
+                        status: RequestStatus.IN_REVIEW,
+                        events: {
+                            create: {
+                                userId,
+                                type: 'SYSTEM_ERROR',
+                                description: `Fulfillment failed: ${error.message}. Request reverted to IN_REVIEW.`,
+                            }
+                        }
+                    }
+                });
+            }
+            throw error;
+        }
     }
 }

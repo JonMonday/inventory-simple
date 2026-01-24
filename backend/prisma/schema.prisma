@@ -1,6 +1,3 @@
-// Prisma Schema for Production Inventory Management System
-// Highly relational, normalized design for SQLite
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,71 +6,59 @@ datasource db {
   provider = "sqlite"
 }
 
-// ============================================================================
-// RBAC SYSTEM
-// ============================================================================
-
 model User {
-  id                 String   @id @default(uuid())
-  email              String   @unique
-  passwordHash       String
-  fullName           String
-  departmentId       String?
-  locationId         String?
-  mustChangePassword Boolean  @default(false)
-  isActive           Boolean  @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  // Relations
-  department Location? @relation("UserDepartment", fields: [departmentId], references: [id])
-  location   Location? @relation("UserLocation", fields: [locationId], references: [id])
-
-  roles               UserRole[]
-  permissions         UserPermission[]
-  createdLedgers      InventoryLedger[]  @relation("CreatedBy")
-  assignedRoles       UserRole[]         @relation("AssignedBy")
-  createdImportJobs   ImportJob[]
-  createdStocktakes   Stocktake[]
-  createdForecastRuns ForecastRun[]
+  id                  String              @id @default(uuid())
+  email               String              @unique
+  passwordHash        String
+  fullName            String
+  departmentId        String?
+  locationId          String?
+  mustChangePassword  Boolean             @default(false)
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
   auditLogs           AuditLog[]
   brandingUpdates     BrandingSettings[]
+  createdForecastRuns ForecastRun[]
+  createdImportJobs   ImportJob[]
+  createdLedgers      InventoryLedger[]   @relation("CreatedBy")
+  requestsAssigned    RequestAssignment[]
+  requestEvents       RequestEvent[]
+  requestsCreated     Request[]           @relation("Requester")
+  approvedStocktakes  Stocktake[]         @relation("StocktakeApprover")
+  createdStocktakes   Stocktake[]
+  permissions         UserPermission[]
+  assignedRoles       UserRole[]          @relation("AssignedBy")
+  roles               UserRole[]
+  location            Location?           @relation("UserLocation", fields: [locationId], references: [id])
+  department          Location?           @relation("UserDepartment", fields: [departmentId], references: [id])
 
-  // Request Relations
-  requestsCreated  Request[]           @relation("Requester")
-  requestsAssigned RequestAssignment[]
-  requestEvents    RequestEvent[]
-
-  // Stocktake Approval
-  approvedStocktakes Stocktake[] @relation("StocktakeApprover")
+  branchId            String?
+  branch              Branch?             @relation(fields: [branchId], references: [id])
 
   @@map("users")
 }
 
 model Role {
-  id           String   @id @default(uuid())
-  name         String   @unique
+  id           String           @id @default(uuid())
+  name         String           @unique
   description  String?
-  isSystemRole Boolean  @default(false)
-  createdAt    DateTime @default(now())
-
-  // Relations
-  permissions RolePermission[]
-  users       UserRole[]
+  isSystemRole Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  permissions  RolePermission[]
+  users        UserRole[]
 
   @@map("roles")
 }
 
 model Permission {
-  id          String   @id @default(uuid())
-  resource    String // e.g., 'items', 'ledger', 'users', 'requests'
-  action      String // e.g., 'create', 'read', 'update', 'delete', 'approve', 'fulfill'
+  id          String           @id @default(uuid())
+  resource    String
+  action      String
   description String?
-  createdAt   DateTime @default(now())
-
-  // Relations
-  roles RolePermission[]
-  users UserPermission[]
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+  users       UserPermission[]
 
   @@unique([resource, action])
   @@map("permissions")
@@ -82,9 +67,8 @@ model Permission {
 model RolePermission {
   roleId       String
   permissionId String
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId])
   @@map("role_permissions")
@@ -95,10 +79,9 @@ model UserRole {
   roleId       String
   assignedAt   DateTime @default(now())
   assignedById String?
-
-  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  assignedBy User? @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedBy   User?    @relation("AssignedBy", fields: [assignedById], references: [id])
+  role         Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
   @@map("user_roles")
@@ -107,54 +90,45 @@ model UserRole {
 model UserPermission {
   userId       String
   permissionId String
-
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, permissionId])
   @@map("user_permissions")
 }
 
-// ============================================================================
-// INVENTORY CORE
-// ============================================================================
-
 model Category {
-  id               String   @id @default(uuid())
-  name             String   @unique
+  id               String     @id @default(uuid())
+  name             String     @unique
   description      String?
   parentCategoryId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
-  parentCategory  Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
-  childCategories Category[] @relation("CategoryHierarchy")
-  items           Item[]
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  parentCategory   Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  childCategories  Category[] @relation("CategoryHierarchy")
+  items            Item[]
 
   @@map("categories")
 }
 
 model Item {
-  id              String   @id @default(uuid())
-  code            String   @unique
+  id              String            @id @default(uuid())
+  code            String            @unique
   name            String
   description     String?
   categoryId      String
   unitOfMeasure   String
-  status          String   @default("ACTIVE") // ACTIVE, DISCONTINUED
+  status          String            @default("ACTIVE")
   reorderLevel    Int?
   reorderQuantity Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  // Relations
-  category        Category          @relation(fields: [categoryId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  forecastResults ForecastResult[]
   ledgerEntries   InventoryLedger[]
+  category        Category          @relation(fields: [categoryId], references: [id])
+  requestLines    RequestLine[]
   stockSnapshots  StockSnapshot[]
   stocktakeLines  StocktakeLine[]
-  forecastResults ForecastResult[]
-  requestLines    RequestLine[]
 
   @@index([categoryId])
   @@index([status])
@@ -162,32 +136,29 @@ model Item {
 }
 
 model Location {
-  id               String   @id @default(uuid())
-  code             String   @unique
-  name             String
-  type             String // STORE, WAREHOUSE, DEPARTMENT
-  parentLocationId String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
+  id                String            @id @default(uuid())
+  code              String            @unique
+  name              String
+  type              String
+  parentLocationId  String?
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  forecastResults   ForecastResult[]
+  ledgerEntriesTo   InventoryLedger[] @relation("ToLocation")
+  ledgerEntriesFrom InventoryLedger[] @relation("FromLocation")
   parentLocation    Location?         @relation("LocationHierarchy", fields: [parentLocationId], references: [id])
   childLocations    Location[]        @relation("LocationHierarchy")
-  ledgerEntriesFrom InventoryLedger[] @relation("FromLocation")
-  ledgerEntriesTo   InventoryLedger[] @relation("ToLocation")
+  requestsFulfilled Request[]         @relation("RequestIssueFrom")
+  requestsAsLoc     Request[]         @relation("RequestLocation")
+  requestsAsDept    Request[]         @relation("RequestDepartment")
   stockSnapshots    StockSnapshot[]
   stocktakes        Stocktake[]
-  forecastResults   ForecastResult[]
+  usersInLocation   User[]            @relation("UserLocation")
+  usersInDepartment User[]            @relation("UserDepartment")
 
-  // User Relations
-  usersInDepartment User[] @relation("UserDepartment")
-  usersInLocation   User[] @relation("UserLocation")
-
-  // Request Relations
-  requestsAsDept    Request[] @relation("RequestDepartment")
-  requestsAsLoc     Request[] @relation("RequestLocation")
-  requestsFulfilled Request[] @relation("RequestIssueFrom")
+  branchId          String
+  branch            Branch            @relation(fields: [branchId], references: [id])
 
   @@index([type])
   @@index([isActive])
@@ -195,36 +166,50 @@ model Location {
 }
 
 model ReasonCode {
-  id               String   @id @default(uuid())
-  code             String   @unique
+  id               String                   @id @default(uuid())
+  code             String                   @unique
   name             String
   description      String?
-  movementType     String // RECEIVE, ISSUE, TRANSFER, ADJUSTMENT, RETURN
-  isActive         Boolean  @default(true)
-  requiresFreeText Boolean  @default(false) // If true, reasonText is mandatory
-  requiresApproval Boolean  @default(false) // If true, logic checks for permission over threshold
-  thresholdValue   Float? // Value threshold for approval
-  label            String? // UI Label
-  createdAt        DateTime @default(now())
+  isActive         Boolean                  @default(true)
+  requiresFreeText Boolean                  @default(false)
+  requiresApproval Boolean                  @default(false)
+  approvalThreshold Float?
+  label            String?
+  createdAt        DateTime                 @default(now())
+  ledgerEntries    InventoryLedger[]
+  allowedMovements ReasonCodeMovementType[]
 
-  // Relations
-  ledgerEntries InventoryLedger[]
-
-  @@index([movementType])
   @@index([isActive])
   @@map("reason_codes")
 }
 
-// ============================================================================
-// LEDGER SYSTEM (APPEND-ONLY)
-// ============================================================================
+model ReasonCodeMovementType {
+  reasonCodeId String
+  movementType String
+  reasonCode   ReasonCode @relation(fields: [reasonCodeId], references: [id], onDelete: Cascade)
+
+  @@id([reasonCodeId, movementType])
+  @@map("reason_code_movement_types")
+}
+
+model Branch {
+  id        String     @id @default(uuid())
+  code      String     @unique
+  name      String
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  locations Location[]
+  users     User[]
+
+  @@map("branches")
+}
 
 model InventoryLedger {
-  id                   String   @id @default(uuid())
+  id                   String            @id @default(uuid())
   itemId               String
   fromLocationId       String?
   toLocationId         String?
-  movementType         String // RECEIVE, ISSUE, TRANSFER, ADJUSTMENT, RETURN, REVERSAL
+  movementType         String
   quantity             Int
   unitOfMeasure        String
   reasonCodeId         String
@@ -236,29 +221,23 @@ model InventoryLedger {
   receivedBy           String?
   comments             String?
   createdByUserId      String
-  createdAtUtc         DateTime @default(now())
-  source               String   @default("UI") // UI, API, IMPORT
+  createdAtUtc         DateTime          @default(now())
+  source               String            @default("UI")
   importJobId          String?
   correctionOfLedgerId String?
-  reversalOfLedgerId   String? // For Reversals
-
-  // Costing
-  unitCost  Float?
-  totalCost Float?
-
-  // Relations
-  item         Item       @relation(fields: [itemId], references: [id])
-  fromLocation Location?  @relation("FromLocation", fields: [fromLocationId], references: [id])
-  toLocation   Location?  @relation("ToLocation", fields: [toLocationId], references: [id])
-  reasonCode   ReasonCode @relation(fields: [reasonCodeId], references: [id])
-  createdBy    User       @relation("CreatedBy", fields: [createdByUserId], references: [id])
-  importJob    ImportJob? @relation(fields: [importJobId], references: [id])
-
-  correctionOfLedger InventoryLedger?  @relation("Corrections", fields: [correctionOfLedgerId], references: [id])
-  corrections        InventoryLedger[] @relation("Corrections")
-
-  reversalOfLedger InventoryLedger?  @relation("Reversals", fields: [reversalOfLedgerId], references: [id])
-  reversals        InventoryLedger[] @relation("Reversals")
+  reversalOfLedgerId   String?
+  unitCost             Float?
+  totalCost            Float?
+  reversalOfLedger     InventoryLedger?  @relation("Reversals", fields: [reversalOfLedgerId], references: [id])
+  reversals            InventoryLedger[] @relation("Reversals")
+  correctionOfLedger   InventoryLedger?  @relation("Corrections", fields: [correctionOfLedgerId], references: [id])
+  corrections          InventoryLedger[] @relation("Corrections")
+  importJob            ImportJob?        @relation(fields: [importJobId], references: [id])
+  createdBy            User              @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  reasonCode           ReasonCode        @relation(fields: [reasonCodeId], references: [id])
+  toLocation           Location?         @relation("ToLocation", fields: [toLocationId], references: [id])
+  fromLocation         Location?         @relation("FromLocation", fields: [fromLocationId], references: [id])
+  item                 Item              @relation(fields: [itemId], references: [id])
 
   @@index([itemId])
   @@index([fromLocationId])
@@ -273,13 +252,11 @@ model StockSnapshot {
   itemId           String
   locationId       String
   quantityOnHand   Int
-  reservedQuantity Int      @default(0)
-  lastUpdatedAt    DateTime @updatedAt
-
-  // Relations
-  item         Item          @relation(fields: [itemId], references: [id])
-  location     Location      @relation(fields: [locationId], references: [id])
-  reservations Reservation[]
+  reservedQuantity Int           @default(0)
+  lastUpdatedAt    DateTime      @updatedAt
+  reservations     Reservation[]
+  location         Location      @relation(fields: [locationId], references: [id])
+  item             Item          @relation(fields: [itemId], references: [id])
 
   @@id([itemId, locationId])
   @@index([locationId])
@@ -287,60 +264,47 @@ model StockSnapshot {
 }
 
 model Reservation {
-  id            String   @id @default(uuid())
-  requestLineId String   @unique // One reservation per request line
+  id            String        @id @default(uuid())
+  requestLineId String        @unique
   itemId        String
   locationId    String
   quantity      Int
-  createdAt     DateTime @default(now())
-
-  // Relations
-  stockSnapshot StockSnapshot @relation(fields: [itemId, locationId], references: [itemId, locationId])
+  createdAt     DateTime      @default(now())
   requestLine   RequestLine   @relation(fields: [requestLineId], references: [id], onDelete: Cascade)
+  stockSnapshot StockSnapshot @relation(fields: [itemId, locationId], references: [itemId, locationId])
 
   @@index([itemId, locationId])
   @@map("reservations")
 }
 
-// ============================================================================
-// REQUESTS & FULFILLMENT
-// ============================================================================
-
 model SystemSequence {
   id        String   @id @default(uuid())
-  name      String // e.g. 'REQUEST'
-  year      Int // e.g. 2024
-  nextValue Int // e.g. 1001
+  name      String
+  year      Int
+  nextValue Int
   updatedAt DateTime @updatedAt
 
-  @@unique([name, year]) // Ensure only one sequence per name per year
+  @@unique([name, year])
   @@map("system_sequences")
 }
 
 model Request {
-  id              String @id @default(uuid())
-  readableId      String @unique // REQ-2024-0001
-  requesterUserId String
-  status          String @default("DRAFT") // DRAFT, SUBMITTED, IN_REVIEW, IN_APPROVAL, APPROVED, REJECTED, FULFILLED, CANCELLED
-
-  // Snapshot of Requester Location/Dept at time of SUBMIT
-  departmentId String?
-  locationId   String?
-
-  issueFromLocationId String? // Warehouse fulfilling it
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  requester  User      @relation("Requester", fields: [requesterUserId], references: [id])
-  department Location? @relation("RequestDepartment", fields: [departmentId], references: [id])
-  location   Location? @relation("RequestLocation", fields: [locationId], references: [id])
-  issueFrom  Location? @relation("RequestIssueFrom", fields: [issueFromLocationId], references: [id])
-
-  lines       RequestLine[]
-  assignments RequestAssignment[]
-  events      RequestEvent[]
+  id                  String              @id @default(uuid())
+  readableId          String              @unique
+  requesterUserId     String
+  status              String              @default("DRAFT")
+  departmentId        String?
+  locationId          String?
+  issueFromLocationId String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  assignments         RequestAssignment[]
+  events              RequestEvent[]
+  lines               RequestLine[]
+  issueFrom           Location?           @relation("RequestIssueFrom", fields: [issueFromLocationId], references: [id])
+  location            Location?           @relation("RequestLocation", fields: [locationId], references: [id])
+  department          Location?           @relation("RequestDepartment", fields: [departmentId], references: [id])
+  requester           User                @relation("Requester", fields: [requesterUserId], references: [id])
 
   @@index([status])
   @@index([requesterUserId])
@@ -348,14 +312,12 @@ model Request {
 }
 
 model RequestLine {
-  id        String @id @default(uuid())
-  requestId String
-  itemId    String
-  quantity  Int
-
-  // Relations
-  request     Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  id          String       @id @default(uuid())
+  requestId   String
+  itemId      String
+  quantity    Int
   item        Item         @relation(fields: [itemId], references: [id])
+  request     Request      @relation(fields: [requestId], references: [id], onDelete: Cascade)
   reservation Reservation?
 
   @@index([requestId])
@@ -366,14 +328,12 @@ model RequestAssignment {
   id          String    @id @default(uuid())
   requestId   String
   userId      String
-  level       String // REVIEW, APPROVAL, FULFILL
+  level       String
   isActive    Boolean   @default(true)
   assignedAt  DateTime  @default(now())
   completedAt DateTime?
-
-  // Relations
-  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+  request     Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([userId])
@@ -384,42 +344,32 @@ model RequestEvent {
   id          String   @id @default(uuid())
   requestId   String
   userId      String?
-  type        String // STATUS_CHANGE, COMMENT, EDIT, REASSIGNMENT, CREATED, SUBMITTED, REFACTORED, FULFILLED, CANCELLATION
+  type        String
   description String
-  dataJson    String? // Snapshots of lines before/after edit
+  dataJson    String?
   createdAt   DateTime @default(now())
-
-  // Relations
-  request Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
+  request     Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@map("request_events")
 }
 
-// ============================================================================
-// STOCKTAKE
-// ============================================================================
-
 model Stocktake {
-  id          String    @id @default(uuid())
-  name        String
-  locationId  String
-  status      String    @default("DRAFT") // DRAFT, COUNTING, SUBMITTED, APPROVED, APPLIED
-  startedAt   DateTime?
-  completedAt DateTime?
-
-  createdByUserId String
-  createdAt       DateTime @default(now())
-
+  id               String          @id @default(uuid())
+  name             String
+  locationId       String
+  status           String          @default("DRAFT")
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdByUserId  String
+  createdAt        DateTime        @default(now())
   approvedByUserId String?
   approvedAt       DateTime?
-
-  // Relations
-  location   Location        @relation(fields: [locationId], references: [id])
-  createdBy  User            @relation(fields: [createdByUserId], references: [id])
-  approvedBy User?           @relation("StocktakeApprover", fields: [approvedByUserId], references: [id])
-  lines      StocktakeLine[]
+  lines            StocktakeLine[]
+  approvedBy       User?           @relation("StocktakeApprover", fields: [approvedByUserId], references: [id])
+  createdBy        User            @relation(fields: [createdByUserId], references: [id])
+  location         Location        @relation(fields: [locationId], references: [id])
 
   @@index([locationId])
   @@index([status])
@@ -427,45 +377,37 @@ model Stocktake {
 }
 
 model StocktakeLine {
-  id              String  @id @default(uuid())
+  id              String    @id @default(uuid())
   stocktakeId     String
   itemId          String
-  systemQuantity  Int // Snapshot at start of count
+  systemQuantity  Int
   countedQuantity Int?
   variance        Int?
   notes           String?
-
-  // Relations
-  stocktake Stocktake @relation(fields: [stocktakeId], references: [id], onDelete: Cascade)
-  item      Item      @relation(fields: [itemId], references: [id])
+  item            Item      @relation(fields: [itemId], references: [id])
+  stocktake       Stocktake @relation(fields: [stocktakeId], references: [id], onDelete: Cascade)
 
   @@index([stocktakeId])
   @@index([itemId])
   @@map("stocktake_lines")
 }
 
-// ============================================================================
-// IMPORT & JOBS
-// ============================================================================
-
 model ImportJob {
-  id              String    @id @default(uuid())
+  id              String            @id @default(uuid())
   filename        String
   fileHash        String
-  status          String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
-  totalRows       Int       @default(0)
-  processedRows   Int       @default(0)
-  errorRows       Int       @default(0)
+  status          String            @default("PENDING")
+  totalRows       Int               @default(0)
+  processedRows   Int               @default(0)
+  errorRows       Int               @default(0)
   errorReportPath String?
   createdByUserId String
   startedAt       DateTime?
   completedAt     DateTime?
-  createdAt       DateTime  @default(now())
-
-  // Relations
-  createdBy     User              @relation(fields: [createdByUserId], references: [id])
-  errors        ImportError[]
-  ledgerEntries InventoryLedger[]
+  createdAt       DateTime          @default(now())
+  errors          ImportError[]
+  createdBy       User              @relation(fields: [createdByUserId], references: [id])
+  ledgerEntries   InventoryLedger[]
 
   @@index([status])
   @@index([createdAt])
@@ -473,63 +415,49 @@ model ImportJob {
 }
 
 model ImportError {
-  id           String  @id @default(uuid())
+  id           String    @id @default(uuid())
   importJobId  String
   rowNumber    Int
   sheetName    String
   fieldName    String?
   errorMessage String
-
-  // Relations
-  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJob    ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 
   @@index([importJobId])
   @@map("import_errors")
 }
 
-// ============================================================================
-// FORECASTING
-// ============================================================================
-
 model ForecastRun {
-  id              String   @id @default(uuid())
+  id              String           @id @default(uuid())
   name            String
-  method          String // MOVING_AVG, EXP_SMOOTHING
+  method          String
   periodMonths    Int
-  runAt           DateTime @default(now())
+  runAt           DateTime         @default(now())
   createdByUserId String
-
-  // Relations
-  createdBy User             @relation(fields: [createdByUserId], references: [id])
-  results   ForecastResult[]
+  results         ForecastResult[]
+  createdBy       User             @relation(fields: [createdByUserId], references: [id])
 
   @@index([runAt])
   @@map("forecast_runs")
 }
 
 model ForecastResult {
-  id                   String @id @default(uuid())
+  id                   String      @id @default(uuid())
   forecastRunId        String
   itemId               String
   locationId           String
-  predictedConsumption Float
+  predictedConsumption Int
   currentStock         Int
   reorderSuggestion    Int
-
-  // Relations
-  forecastRun ForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
-  item        Item        @relation(fields: [itemId], references: [id])
-  location    Location    @relation(fields: [locationId], references: [id])
+  location             Location    @relation(fields: [locationId], references: [id])
+  item                 Item        @relation(fields: [itemId], references: [id])
+  forecastRun          ForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
 
   @@index([forecastRunId])
   @@index([itemId])
   @@index([locationId])
   @@map("forecast_results")
 }
-
-// ============================================================================
-// SETTINGS & AUDIT
-// ============================================================================
 
 model BrandingSettings {
   id              String   @id @default(uuid())
@@ -538,9 +466,7 @@ model BrandingSettings {
   secondaryColor  String   @default("#8b5cf6")
   updatedAt       DateTime @updatedAt
   updatedByUserId String
-
-  // Relations
-  updatedBy User @relation(fields: [updatedByUserId], references: [id])
+  updatedBy       User     @relation(fields: [updatedByUserId], references: [id])
 
   @@map("branding_settings")
 }
@@ -551,12 +477,10 @@ model AuditLog {
   action       String
   resourceType String
   resourceId   String?
-  changesJson  String? // JSON string of changes
+  changesJson  String?
   ipAddress    String?
   createdAt    DateTime @default(now())
-
-  // Relations
-  user User? @relation(fields: [userId], references: [id])
+  user         User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([resourceType])

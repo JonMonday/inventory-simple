@@ -99,13 +99,13 @@ export class AuthService {
 
         // Add direct user permissions
         user.permissions.forEach((up) => {
-            permissionSet.add(`${up.permission.resource}:${up.permission.action}`);
+            permissionSet.add(`${up.permission.resource}.${up.permission.action}`);
         });
 
         // Add role-based permissions
         user.roles.forEach((ur) => {
             ur.role.permissions.forEach((rp) => {
-                permissionSet.add(`${rp.permission.resource}:${rp.permission.action}`);
+                permissionSet.add(`${rp.permission.resource}.${rp.permission.action}`);
             });
         });
 

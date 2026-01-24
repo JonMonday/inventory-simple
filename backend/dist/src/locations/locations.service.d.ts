@@ -8,6 +8,7 @@ export declare class LocationsService {
         name: string;
         isActive: boolean;
         updatedAt: Date;
+        branchId: string;
         code: string;
         type: string;
         parentLocationId: string | null;
@@ -18,6 +19,7 @@ export declare class LocationsService {
         name: string;
         isActive: boolean;
         updatedAt: Date;
+        branchId: string;
         code: string;
         type: string;
         parentLocationId: string | null;

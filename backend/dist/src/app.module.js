@@ -9,12 +9,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const core_1 = require("@nestjs/core");
 const auth_module_1 = require("./auth/auth.module");
 const items_module_1 = require("./items/items.module");
 const users_module_1 = require("./users/users.module");
+const requests_module_1 = require("./requests/requests.module");
+const inventory_module_1 = require("./inventory/inventory.module");
+const stocktake_module_1 = require("./stocktake/stocktake.module");
+const reports_module_1 = require("./reports/reports.module");
 const prisma_module_1 = require("./prisma/prisma.module");
-const permissions_guard_1 = require("./common/guards/permissions.guard");
+const locations_module_1 = require("./locations/locations.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,13 +31,13 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             items_module_1.ItemsModule,
             users_module_1.UsersModule,
+            requests_module_1.RequestsModule,
+            inventory_module_1.InventoryModule,
+            stocktake_module_1.StocktakeModule,
+            reports_module_1.ReportsModule,
+            locations_module_1.LocationsModule,
         ],
-        providers: [
-            {
-                provide: core_1.APP_GUARD,
-                useClass: permissions_guard_1.PermissionsGuard,
-            },
-        ],
+        providers: [],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

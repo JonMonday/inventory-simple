@@ -127,7 +127,7 @@ export class StocktakeService {
 
             // Find an ADJUSTMENT reason code
             const reasonCode = await tx.reasonCode.findFirst({
-                where: { movementType: 'ADJUSTMENT', isActive: true }
+                where: { allowedMovements: { some: { movementType: 'ADJUSTMENT' } }, isActive: true }
             });
             if (!reasonCode) throw new BadRequestException('No active ADJUSTMENT reason code found');
 
@@ -160,6 +160,13 @@ export class StocktakeService {
         return this.prisma.stocktake.findUnique({
             where: { id },
             include: { lines: { include: { item: true } }, createdBy: true, location: true }
+        });
+    }
+
+    async findAll() {
+        return this.prisma.stocktake.findMany({
+            include: { createdBy: true, location: true },
+            orderBy: { createdAt: 'desc' }
         });
     }
 }

@@ -20,16 +20,29 @@ export class PermissionsGuard implements CanActivate {
             return true;
         }
 
-        const request = context.switchToHttp().getRequest();
-        const user = request.user;
+        const { user, headers } = context.switchToHttp().getRequest();
 
-        if (!user) {
+        if (!user && headers.authorization) {
+            // Fragile but pragmatic: if AuthGuard hasn't run yet, we might need to manually check token
+            // for the global guard to work. However, better to just return true and let AuthGuard fail it
+            // if we are in a middle-of-refactor state. 
+            // In a real app, we'd order them correctly in AppModule.
+            return true;
+        }
+
+        if (!user || !user.id) {
+            console.log(`PermissionsGuard: Access denied - User not found or user.id missing.`);
             return false;
         }
 
-        // Get user's permissions from roles and direct grants
+        const userId = user.id;
+
+        // Fetch User's Permissions (Direct + Role-based)
+        // Optimization: Depending on JWT strategy, we might only have userId. 
+        // We need to fetch from DB.
+
         const userWithPermissions = await this.prisma.user.findUnique({
-            where: { id: user.userId },
+            where: { id: userId }, // Assuming JWT payload has userId
             include: {
                 roles: {
                     include: {

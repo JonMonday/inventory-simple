@@ -6,6 +6,7 @@ export declare class AuthController {
         email: string;
         password: string;
     }): Promise<{
+        permissions: string[];
         access_token: string;
         user: {
             id: any;
@@ -15,8 +16,6 @@ export declare class AuthController {
             mustChangePassword: any;
             roles: any;
         };
-    } | {
-        message: string;
     }>;
     changePassword(req: any, body: {
         password: string;
