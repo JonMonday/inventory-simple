@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 const requestSchema = z.object({
+    templateId: z.string().min(1, "Workflow template is required"),
     lines: z.array(z.object({
         itemId: z.string().min(1, "Item is required"),
         quantity: z.number().min(1, "Quantity must be at least 1"),
@@ -42,9 +43,18 @@ export default function NewRequestPage() {
         },
     });
 
+    const { data: templates } = useQuery({
+        queryKey: ["templates"],
+        queryFn: async () => {
+            const res = await api.get("/templates");
+            return res.data;
+        },
+    });
+
     const form = useForm<RequestFormValues>({
         resolver: zodResolver(requestSchema),
         defaultValues: {
+            templateId: "",
             lines: [{ itemId: "", quantity: 1 }],
         },
     });
@@ -82,6 +92,37 @@ export default function NewRequestPage() {
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <Card>
+                        <CardHeader>
+                            <CardTitle>Request Settings</CardTitle>
+                            <CardDescription>Select the workflow this request should follow.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="templateId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Workflow Template</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select a workflow template" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {templates?.map((t: any) => (
+                                                    <SelectItem key={t.id} value={t.id}>
+                                                        {t.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </CardContent>
+
                         <CardHeader>
                             <CardTitle>Request Items</CardTitle>
                             <CardDescription>Add the items and quantities you need. Stock will be reserved upon submission.</CardDescription>

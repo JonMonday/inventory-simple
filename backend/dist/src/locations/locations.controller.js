@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LocationsController = void 0;
+const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const locations_service_1 = require("./locations.service");
@@ -26,6 +27,7 @@ let LocationsController = class LocationsController {
 exports.LocationsController = LocationsController;
 __decorate([
     (0, common_1.Get)(),
+    openapi.ApiResponse({ status: 200 }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/use-auth-store';
+import { toast } from 'sonner';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:3001';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -12,9 +13,6 @@ const api = axios.create({
 
 api.interceptors.request.use(
     (config) => {
-        // We can't use hooks here, so we access the store directly if using Zustand outside components
-        // Or we rely on the component calling api to ensure token is set?
-        // Better: Zustand store functions can be imported.
         const token = useAuthStore.getState().token;
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -27,11 +25,41 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            // Logic to logout or refresh token
+        const status = error.response?.status;
+        const data = error.response?.data;
+
+        // 401 Unauthorized - Logout and redirect to login
+        if (status === 401) {
             useAuthStore.getState().logout();
-            // Optionally redirect to login if we can access router, or let the UI handle the state change
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+            toast.error('Session expired. Please log in again.');
         }
+
+        // 403 Forbidden - Permission denied
+        if (status === 403) {
+            const message = data?.message || 'You do not have permission to perform this action.';
+            toast.error(`Permission Denied: ${message}`);
+        }
+
+        // 409 Conflict - Business logic validation errors
+        if (status === 409) {
+            const message = data?.message || 'A conflict occurred. Please review your input.';
+            toast.warning(message);
+        }
+
+        // 422 Unprocessable Entity - Form validation errors
+        if (status === 422) {
+            const message = data?.message || 'Validation failed. Please check your input.';
+            toast.error(message);
+
+            // Attach validation errors for form handling
+            if (data?.errors) {
+                error.validationErrors = data.errors;
+            }
+        }
+
         return Promise.reject(error);
     }
 );

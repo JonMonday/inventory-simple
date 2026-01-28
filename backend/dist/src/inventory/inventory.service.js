@@ -18,284 +18,241 @@ let InventoryService = class InventoryService {
         this.prisma = prisma;
     }
     async recordMovement(tx, data) {
-        const validMovements = ['RECEIVE', 'ISSUE', 'ADJUSTMENT', 'TRANSFER', 'REVERSAL', 'RETURN'];
-        if (!validMovements.includes(data.movementType))
-            throw new common_1.BadRequestException(`Invalid movement type: ${data.movementType}`);
-        if (data.movementType !== 'REVERSAL' && data.movementType !== 'ADJUSTMENT' && data.quantity <= 0)
-            throw new common_1.BadRequestException('Quantity must be positive');
         const item = await tx.item.findUnique({ where: { id: data.itemId } });
         if (!item)
-            throw new common_1.BadRequestException(`Item ${data.itemId} not found`);
-        const reasonCode = await tx.reasonCode.findUnique({
-            where: { id: data.reasonCodeId },
-            include: { allowedMovements: true }
-        });
-        if (!reasonCode)
-            throw new common_1.BadRequestException(`Reason Code ${data.reasonCodeId} not found`);
-        if (!reasonCode.isActive)
-            throw new common_1.BadRequestException(`Reason Code ${data.reasonCodeId} is not active`);
-        const isAllowed = reasonCode.allowedMovements.some((m) => m.movementType === data.movementType);
-        if (!isAllowed) {
-            throw new common_1.BadRequestException(`Reason Code ${reasonCode.code} is not permitted for movement type ${data.movementType}`);
-        }
-        await this.validateReasonPolicy(tx, reasonCode, Math.abs(data.quantity), data.unitCost || 0, data.userId, data.reasonText);
-        const ledgerData = {
-            itemId: data.itemId,
-            movementType: data.movementType,
-            quantity: Math.abs(data.quantity),
-            unitOfMeasure: item.unitOfMeasure,
-            reasonCodeId: data.reasonCodeId,
-            reasonText: data.reasonText,
-            referenceNo: data.referenceNo,
-            comments: data.comments,
-            createdByUserId: data.userId,
-            unitCost: data.unitCost,
-            totalCost: data.unitCost ? data.unitCost * Math.abs(data.quantity) : undefined,
-            source: 'API',
-            reversalOfLedgerId: data.reversalOfLedgerId
-        };
-        let increment = 0;
-        if (data.movementType === 'RECEIVE') {
-            ledgerData.toLocationId = data.locationId;
-            ledgerData.fromLocationId = data.relatedLocationId;
-            increment = data.quantity;
-        }
-        else if (data.movementType === 'ISSUE') {
-            ledgerData.fromLocationId = data.locationId;
-            ledgerData.toLocationId = data.relatedLocationId;
-            increment = -data.quantity;
-        }
-        else if (data.movementType === 'ADJUSTMENT' || data.movementType === 'REVERSAL') {
-            increment = data.quantity;
-            if (increment > 0) {
-                ledgerData.toLocationId = data.locationId;
-            }
-            else {
-                ledgerData.fromLocationId = data.locationId;
-            }
-        }
-        else if (data.movementType === 'RETURN') {
-            ledgerData.toLocationId = data.locationId;
-            ledgerData.fromLocationId = data.relatedLocationId;
-            increment = data.quantity;
-        }
-        else if (data.movementType === 'TRANSFER') {
-            if (!data.relatedLocationId)
-                throw new common_1.BadRequestException('Transfer requires relatedLocationId (source)');
-            ledgerData.toLocationId = data.locationId;
-            ledgerData.fromLocationId = data.relatedLocationId;
-            increment = data.quantity;
-            await tx.stockSnapshot.update({
-                where: { itemId_locationId: { itemId: data.itemId, locationId: data.relatedLocationId } },
-                data: { quantityOnHand: { decrement: data.quantity } },
-            });
-        }
-        const ledger = await tx.inventoryLedger.create({ data: ledgerData });
-        if (data.movementType === 'ISSUE' || data.movementType === 'TRANSFER' || (data.movementType === 'ADJUSTMENT' && increment < 0)) {
-            const locId = (data.movementType === 'TRANSFER') ? data.relatedLocationId : data.locationId;
-            const snap = await tx.stockSnapshot.findUnique({
-                where: { itemId_locationId: { itemId: data.itemId, locationId: locId } }
-            });
-            if (snap) {
-                const available = snap.quantityOnHand - snap.reservedQuantity;
-                if (available < Math.abs(increment)) {
-                    throw new common_1.BadRequestException(`Insufficient available stock at location ${locId}. OnHand: ${snap.quantityOnHand}, Reserved: ${snap.reservedQuantity}, Available: ${available}, Requested: ${Math.abs(increment)}`);
-                }
-            }
-        }
+            throw new common_1.NotFoundException(`Item not found: ${data.itemId}`);
+        const mType = await tx.ledgerMovementType.findUnique({ where: { code: data.movementType } });
+        if (!mType)
+            throw new common_1.BadRequestException(`Invalid movement type: ${data.movementType}`);
         await tx.stockSnapshot.upsert({
-            where: { itemId_locationId: { itemId: data.itemId, locationId: data.locationId } },
-            update: { quantityOnHand: { increment: increment } },
-            create: {
+            where: { itemId_storeLocationId: { itemId: data.itemId, storeLocationId: data.locationId } },
+            update: { quantityOnHand: { increment: data.quantity } },
+            create: { itemId: data.itemId, storeLocationId: data.locationId, quantityOnHand: data.quantity }
+        });
+        return tx.inventoryLedger.create({
+            data: {
                 itemId: data.itemId,
-                locationId: data.locationId,
-                quantityOnHand: increment > 0 ? increment : 0,
-            },
+                [data.quantity > 0 ? 'toStoreLocationId' : 'fromStoreLocationId']: data.locationId,
+                movementTypeId: mType.id,
+                quantity: Math.abs(data.quantity),
+                unitOfMeasure: item.unitOfMeasure,
+                reasonCodeId: data.reasonCodeId,
+                reasonText: data.comments,
+                createdByUserId: data.userId,
+                referenceNo: data.referenceNo,
+            }
         });
-        return ledger;
-    }
-    async reverseLedgerEntry(tx, ledgerId, userId, reasonCodeId, notes) {
-        const original = await tx.inventoryLedger.findUnique({ where: { id: ledgerId } });
-        if (!original)
-            throw new common_1.NotFoundException('Original ledger entry not found');
-        if (original.reversalOfLedgerId)
-            throw new common_1.BadRequestException('Cannot reverse a reversal');
-        const existingReversal = await tx.inventoryLedger.findFirst({ where: { reversalOfLedgerId: ledgerId } });
-        if (existingReversal)
-            throw new common_1.BadRequestException('Ledger entry already reversed');
-        let quantity = 0;
-        let locationId = '';
-        if (original.movementType === 'RECEIVE') {
-            locationId = original.toLocationId;
-            quantity = -original.quantity;
-        }
-        else if (original.movementType === 'ISSUE') {
-            locationId = original.fromLocationId;
-            quantity = original.quantity;
-        }
-        else if (original.movementType === 'ADJUSTMENT') {
-            if (original.toLocationId) {
-                locationId = original.toLocationId;
-                quantity = -original.quantity;
-            }
-            else {
-                locationId = original.fromLocationId;
-                quantity = original.quantity;
-            }
-        }
-        else if (original.movementType === 'RETURN') {
-            locationId = original.toLocationId;
-            quantity = -original.quantity;
-        }
-        else if (original.movementType === 'TRANSFER') {
-            locationId = original.fromLocationId;
-            const sourceLocationId = original.toLocationId;
-            await this.recordMovement(tx, {
-                itemId: original.itemId,
-                locationId: locationId,
-                relatedLocationId: sourceLocationId,
-                movementType: 'REVERSAL',
-                quantity: original.quantity,
-                reasonCodeId,
-                reasonText: notes,
-                userId,
-                comments: `Reversal of Transfer ${original.referenceNo || ledgerId}. ${notes || ''}`,
-                reversalOfLedgerId: ledgerId
-            });
-            return;
-        }
-        else {
-            throw new common_1.BadRequestException(`Reversal not implemented for movement type ${original.movementType}`);
-        }
-        await this.recordMovement(tx, {
-            itemId: original.itemId,
-            locationId: locationId,
-            movementType: 'REVERSAL',
-            quantity: quantity,
-            reasonCodeId,
-            reasonText: notes,
-            userId,
-            comments: `Reversal of ${original.referenceNo || ledgerId}. ${notes || ''}`,
-            reversalOfLedgerId: ledgerId
-        });
-    }
-    async validateReasonPolicy(tx, code, quantity, unitCost, userId, text) {
-        if (code.requiresFreeText && !text) {
-            throw new common_1.BadRequestException(`Reason code ${code.code} requires a description/text.`);
-        }
-        if (code.requiresApproval && code.approvalThreshold !== null) {
-            const totalValue = quantity * unitCost;
-            if (totalValue > code.approvalThreshold) {
-                const user = await tx.user.findUnique({
-                    where: { id: userId },
-                    include: {
-                        roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
-                        permissions: { include: { permission: true } }
-                    }
-                });
-                const hasOverride = user.roles.some((ur) => ur.role.permissions.some((rp) => rp.permission.resource === 'ledger' && rp.permission.action === 'override')) ||
-                    user.permissions.some((up) => up.permission.resource === 'ledger' && up.permission.action === 'override');
-                if (!hasOverride) {
-                    throw new common_1.ForbiddenException(`Movement value (${totalValue}) exceeds approval threshold (${code.approvalThreshold}) for reason code ${code.code}.`);
-                }
-            }
-        }
     }
     async receive(userId, dto) {
         return this.prisma.$transaction(async (tx) => {
-            const location = await tx.location.findUnique({ where: { id: dto.locationId } });
-            if (!location || location.type === 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Cannot receive inventory into a DEPARTMENT location');
-            }
+            const movementType = await tx.ledgerMovementType.findUnique({ where: { code: 'RECEIVE' } });
             const results = [];
             for (const line of dto.lines) {
-                const reasonCode = await tx.reasonCode.findFirst({
-                    where: {
-                        isActive: true,
-                        allowedMovements: { some: { movementType: 'RECEIVE' } }
-                    },
+                const item = await tx.item.findUnique({ where: { id: line.itemId } });
+                if (!item)
+                    throw new common_1.NotFoundException(`Item not found: ${line.itemId}`);
+                await tx.stockSnapshot.upsert({
+                    where: { itemId_storeLocationId: { itemId: line.itemId, storeLocationId: dto.locationId } },
+                    update: { quantityOnHand: { increment: line.quantity } },
+                    create: { itemId: line.itemId, storeLocationId: dto.locationId, quantityOnHand: line.quantity }
                 });
-                if (!reasonCode)
-                    throw new common_1.BadRequestException('No active RECEIVE reason code found');
-                const ledger = await this.recordMovement(tx, {
-                    itemId: line.itemId,
-                    locationId: dto.locationId,
-                    movementType: 'RECEIVE',
-                    quantity: line.quantity,
-                    reasonCodeId: reasonCode.id,
-                    userId,
-                    comments: dto.comments,
-                    referenceNo: dto.referenceNo,
-                    unitCost: line.unitCost,
+                const entry = await tx.inventoryLedger.create({
+                    data: {
+                        itemId: line.itemId,
+                        toStoreLocationId: dto.locationId,
+                        movementTypeId: movementType.id,
+                        quantity: line.quantity,
+                        unitOfMeasure: item.unitOfMeasure,
+                        reasonCodeId: null,
+                        reasonText: dto.comments,
+                        createdByUserId: userId,
+                        referenceNo: dto.referenceNo,
+                        unitCost: line.unitCost,
+                        totalCost: line.unitCost * line.quantity
+                    }
                 });
-                results.push(ledger);
+                results.push(entry);
             }
             return results;
         });
     }
-    async returnStock(userId, data) {
+    async returnStock(userId, dto) {
         return this.prisma.$transaction(async (tx) => {
-            const fromLoc = await tx.location.findUnique({ where: { id: data.fromLocationId } });
-            const toLoc = await tx.location.findUnique({ where: { id: data.toLocationId } });
-            if (!fromLoc || fromLoc.type !== 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Return must originate from a DEPARTMENT location');
-            }
-            if (!toLoc || (toLoc.type !== 'STORE' && toLoc.type !== 'WAREHOUSE')) {
-                throw new common_1.BadRequestException('Return must be directed to a STORE or WAREHOUSE location');
-            }
-            return this.recordMovement(tx, {
-                itemId: data.itemId,
-                locationId: data.toLocationId,
-                relatedLocationId: data.fromLocationId,
-                movementType: 'RETURN',
-                quantity: data.quantity,
-                reasonCodeId: data.reasonCodeId,
-                reasonText: data.comments,
-                userId,
-                comments: data.comments
+            const movementType = await tx.ledgerMovementType.findUnique({ where: { code: 'RECEIVE' } });
+            const item = await tx.item.findUnique({ where: { id: dto.itemId } });
+            if (!item)
+                throw new common_1.NotFoundException('Item not found');
+            await tx.stockSnapshot.upsert({
+                where: { itemId_storeLocationId: { itemId: dto.itemId, storeLocationId: dto.toLocationId } },
+                update: { quantityOnHand: { increment: dto.quantity } },
+                create: { itemId: dto.itemId, storeLocationId: dto.toLocationId, quantityOnHand: dto.quantity }
+            });
+            return tx.inventoryLedger.create({
+                data: {
+                    itemId: dto.itemId,
+                    fromStoreLocationId: dto.fromLocationId,
+                    toStoreLocationId: dto.toLocationId,
+                    movementTypeId: movementType.id,
+                    quantity: dto.quantity,
+                    unitOfMeasure: item.unitOfMeasure,
+                    reasonCodeId: dto.reasonCodeId,
+                    reasonText: dto.comments,
+                    createdByUserId: userId,
+                }
             });
         });
     }
-    async findAllLocations() {
-        return this.prisma.location.findMany({
-            where: { isActive: true },
-            orderBy: { name: 'asc' },
+    async transfer(userId, dto) {
+        return this.prisma.$transaction(async (tx) => {
+            const movementType = await tx.ledgerMovementType.findUnique({ where: { code: 'TRANSFER' } });
+            const item = await tx.item.findUnique({ where: { id: dto.itemId } });
+            if (!item)
+                throw new common_1.NotFoundException('Item not found');
+            const source = await tx.stockSnapshot.findUnique({
+                where: { itemId_storeLocationId: { itemId: dto.itemId, storeLocationId: dto.fromStoreLocationId } }
+            });
+            if (!source || source.quantityOnHand < dto.quantity) {
+                throw new common_1.BadRequestException('Insufficient stock for transfer');
+            }
+            await tx.stockSnapshot.update({
+                where: { itemId_storeLocationId: { itemId: dto.itemId, storeLocationId: dto.fromStoreLocationId } },
+                data: { quantityOnHand: { decrement: dto.quantity } }
+            });
+            await tx.stockSnapshot.upsert({
+                where: { itemId_storeLocationId: { itemId: dto.itemId, storeLocationId: dto.toStoreLocationId } },
+                update: { quantityOnHand: { increment: dto.quantity } },
+                create: { itemId: dto.itemId, storeLocationId: dto.toStoreLocationId, quantityOnHand: dto.quantity }
+            });
+            return tx.inventoryLedger.create({
+                data: {
+                    itemId: dto.itemId,
+                    fromStoreLocationId: dto.fromStoreLocationId,
+                    toStoreLocationId: dto.toStoreLocationId,
+                    movementTypeId: movementType.id,
+                    quantity: dto.quantity,
+                    unitOfMeasure: item.unitOfMeasure,
+                    reasonCodeId: dto.reasonCodeId,
+                    reasonText: dto.reasonText,
+                    createdByUserId: userId,
+                }
+            });
         });
+    }
+    async adjust(userId, dto) {
+        return this.prisma.$transaction(async (tx) => {
+            const movementType = await tx.ledgerMovementType.findUnique({ where: { code: 'ADJUSTMENT' } });
+            const item = await tx.item.findUnique({ where: { id: dto.itemId } });
+            if (!item)
+                throw new common_1.NotFoundException('Item not found');
+            await tx.stockSnapshot.upsert({
+                where: { itemId_storeLocationId: { itemId: dto.itemId, storeLocationId: dto.storeLocationId } },
+                update: { quantityOnHand: { increment: dto.quantity } },
+                create: { itemId: dto.itemId, storeLocationId: dto.storeLocationId, quantityOnHand: dto.quantity }
+            });
+            return tx.inventoryLedger.create({
+                data: {
+                    itemId: dto.itemId,
+                    toStoreLocationId: dto.storeLocationId,
+                    movementTypeId: movementType.id,
+                    quantity: dto.quantity,
+                    unitOfMeasure: item.unitOfMeasure,
+                    reasonCodeId: dto.reasonCodeId,
+                    reasonText: dto.reasonText,
+                    createdByUserId: userId,
+                }
+            });
+        });
+    }
+    async findAllLedger() {
+        return this.prisma.inventoryLedger.findMany({
+            include: { item: true, movementType: true, fromStoreLocation: true, toStoreLocation: true, reasonCode: true, createdBy: true },
+            orderBy: { createdAtUtc: 'desc' }
+        });
+    }
+    async reverseLedgerEntry(tx, id, userId, reasonCodeId, notes) {
+        const original = await tx.inventoryLedger.findUnique({
+            where: { id },
+            include: { movementType: true }
+        });
+        if (!original)
+            throw new common_1.NotFoundException('Original ledger entry not found');
+        const existingReversal = await tx.inventoryLedger.findFirst({ where: { reversalOfLedgerId: id } });
+        if (existingReversal)
+            throw new common_1.BadRequestException('Ledger entry already reversed');
+        const reversalType = await tx.ledgerMovementType.findUnique({ where: { code: 'REVERSAL' } });
+        if (original.toStoreLocationId) {
+            await tx.stockSnapshot.update({
+                where: { itemId_storeLocationId: { itemId: original.itemId, storeLocationId: original.toStoreLocationId } },
+                data: { quantityOnHand: { decrement: original.quantity } }
+            });
+        }
+        if (original.fromStoreLocationId) {
+            await tx.stockSnapshot.update({
+                where: { itemId_storeLocationId: { itemId: original.itemId, storeLocationId: original.fromStoreLocationId } },
+                data: { quantityOnHand: { increment: original.quantity } }
+            });
+        }
+        return tx.inventoryLedger.create({
+            data: {
+                itemId: original.itemId,
+                fromStoreLocationId: original.toStoreLocationId,
+                toStoreLocationId: original.fromStoreLocationId,
+                movementTypeId: reversalType.id,
+                quantity: original.quantity,
+                unitOfMeasure: original.unitOfMeasure,
+                reasonCodeId,
+                reasonText: notes || `Reversal of entry ${original.id}`,
+                createdByUserId: userId,
+                referenceNo: original.referenceNo,
+                reversalOfLedgerId: id
+            }
+        });
+    }
+    async findAllLocations() {
+        return this.prisma.storeLocation.findMany({ include: { branch: true } });
     }
     async findAllReasonCodes() {
-        return this.prisma.reasonCode.findMany({
-            where: { isActive: true },
-            include: { allowedMovements: true },
-            orderBy: { code: 'asc' },
-        });
+        return this.prisma.reasonCode.findMany();
     }
-    async findAllLedger(filters) {
+    async getLedger(filters) {
         return this.prisma.inventoryLedger.findMany({
             where: {
-                ...(filters?.itemId && { itemId: filters.itemId }),
-                ...(filters?.movementType && { movementType: filters.movementType }),
-                ...(filters?.locationId && {
-                    OR: [
-                        { fromLocationId: filters.locationId },
-                        { toLocationId: filters.locationId },
-                    ],
-                }),
+                itemId: filters?.itemId,
+                OR: [
+                    { fromStoreLocationId: filters?.storeId },
+                    { toStoreLocationId: filters?.storeId }
+                ]
             },
+            include: { item: true, movementType: true, fromStoreLocation: true, toStoreLocation: true, reasonCode: true, createdBy: true },
+            orderBy: { createdAtUtc: 'desc' }
+        });
+    }
+    async getStockSnapshots(filters) {
+        return this.prisma.stockSnapshot.findMany({
+            where: {
+                itemId: filters?.itemId,
+                storeLocationId: filters?.storeId
+            },
+            include: { item: true, storeLocation: true }
+        });
+    }
+    async getSnapshot(itemId, locId) {
+        const snapshot = await this.prisma.stockSnapshot.findUnique({
+            where: { itemId_storeLocationId: { itemId, storeLocationId: locId } },
+            include: { item: true, storeLocation: true }
+        });
+        if (!snapshot)
+            throw new common_1.NotFoundException('Stock snapshot not found');
+        return snapshot;
+    }
+    async getGlobalReservations() {
+        return this.prisma.reservation.findMany({
             include: {
-                item: true,
-                fromLocation: true,
-                toLocation: true,
-                createdBy: {
-                    select: {
-                        fullName: true,
-                        email: true,
-                    },
-                },
-                reasonCode: true,
+                request: { select: { readableId: true } },
+                requestLine: { include: { item: true } },
+                stockSnapshot: { include: { storeLocation: true } }
             },
-            orderBy: {
-                createdAtUtc: 'desc',
-            },
+            orderBy: { createdAt: 'desc' }
         });
     }
 };

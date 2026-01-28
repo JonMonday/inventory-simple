@@ -19,24 +19,82 @@ import {
     LogOut,
     ChevronRight,
     Menu,
+    Inbox,
+    PlusCircle,
+    ArrowLeftRight,
+    AlertTriangle,
+    List,
+    FilePieChart,
+    Sliders,
+    Settings2,
+    Lock,
+    History,
+    MapPin,
+    Tags,
+    RotateCcw,
+    SlidersHorizontal,
+    Layers,
+    LineChart,
+    Shield,
+    KeyRound,
+    Building2,
+    Briefcase,
+    Boxes,
+    BadgeCheck,
+    Map,
+    LayoutGrid,
 } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
 import { APP_ROUTES, canAccessRoute } from "@/permissions/matrix";
-import { ThemeToggle } from "@/components/theme-toggle"; // We need to create this
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
 const icons: Record<string, React.ComponentType<any>> = {
     LayoutDashboard,
     Package,
+
+    // Inventory
     FileText,
+    Inbox,
+    Lock,
+    History,
+    MapPin,
+    Tags,
+
+    // Operations
+    PlusCircle,
+    ArrowLeftRight,
+    RotateCcw,
+    SlidersHorizontal,
+    ClipboardCheck,
+
+    // Reports
+    Layers,
+    Activity,
+    List,
+    LineChart,
+    AlertTriangle,
+    FilePieChart,
+    BarChart3,
+
+    // Admin
+    Users,
+    Shield,
+    KeyRound,
+    Building2,
+    Briefcase,
+    Boxes,
+    BadgeCheck,
+    Map,
+    LayoutGrid,
+    Sliders,
+    Settings2,
+    Settings,
+
+    // Misc
     Download,
     Upload,
-    ClipboardCheck,
-    BarChart3,
-    Activity,
-    Users,
-    Settings,
 };
 
 export function Sidebar() {
@@ -69,7 +127,9 @@ export function Sidebar() {
                             <div className="space-y-1">
                                 {routes.map((route) => {
                                     const Icon = icons[route.icon || ""] || Package;
-                                    const isActive = pathname === route.href;
+                                    const isActive = route.href === "/"
+                                        ? pathname === "/"
+                                        : pathname === route.href || pathname.startsWith(route.href + "/");
 
                                     return (
                                         <Button

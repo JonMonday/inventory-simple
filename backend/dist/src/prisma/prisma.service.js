@@ -12,12 +12,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PrismaService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
-const adapter_better_sqlite3_1 = require("@prisma/adapter-better-sqlite3");
+const globalForPrisma = globalThis;
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        const url = process.env.DATABASE_URL || 'file:./dev.db';
-        const adapter = new adapter_better_sqlite3_1.PrismaBetterSqlite3({ url: url.replace('file:', '') });
-        super({ adapter });
+        if (globalForPrisma.prisma) {
+            return globalForPrisma.prisma;
+        }
+        super({
+            log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        });
+        globalForPrisma.prisma = this;
     }
     async onModuleInit() {
         await this.$connect();

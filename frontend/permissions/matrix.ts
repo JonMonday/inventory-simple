@@ -1,61 +1,32 @@
-export type Permission = string;
+import { PERMISSIONS, type Permission } from './permissions.generated';
 
-export const PERMISSIONS = {
-    // Auth/Users
+export { PERMISSIONS };
+export type { Permission };
+
+
+
+// Config export
+
+/* 
+ * NOTE: The APP_ROUTES below use PERMISSIONS from the generated file.
+ * This ensures frontend and backend are in sync.
+ */
+
+/*
+export const PERMISSIONS_OLD = {
+    // Auth & Users
     USERS_READ: 'users.read',
-    USERS_CREATE: 'users.create',
-    USERS_UPDATE: 'users.update',
-    USERS_DEACTIVATE: 'users.deactivate',
-    ROLES_MANAGE: 'roles.manage',
-    PERMISSIONS_MANAGE: 'permissions.manage',
-
-    // Items
-    ITEMS_READ: 'items.read',
-    ITEMS_CREATE: 'items.create',
-    ITEMS_UPDATE: 'items.update',
-    ITEMS_DELETE: 'items.delete',
-    ITEMS_STOCK_READ: 'items.stock.read',
-
-    // Requests
-    REQUESTS_READ: 'requests.read',
-    REQUESTS_CREATE: 'requests.create',
-    REQUESTS_SUBMIT: 'requests.submit',
-    REQUESTS_REVIEW_START: 'requests.review.start',
-    REQUESTS_REFACTOR: 'requests.refactor',
-    REQUESTS_SEND_TO_APPROVAL: 'requests.sendToApproval',
-    REQUESTS_APPROVE: 'requests.approve',
-    REQUESTS_REJECT: 'requests.reject',
-    REQUESTS_REASSIGN: 'requests.reassign',
-    REQUESTS_FULFILL: 'requests.fulfill',
-    REQUESTS_CANCEL: 'requests.cancel',
-
-    // Inventory/Ledger
-    INVENTORY_RECEIVE: 'inventory.receive',
-    INVENTORY_RETURN: 'inventory.return',
-    LEDGER_READ: 'ledger.read',
-    LEDGER_REVERSE: 'ledger.reverse',
-    INVENTORY_ADJUST: 'inventory.adjust',
-    INVENTORY_ADJUST_OVER_THRESHOLD: 'inventory.adjust.over_threshold',
-
-    // Stocktake
-    STOCKTAKE_CREATE: 'stocktake.create',
-    STOCKTAKE_READ: 'stocktake.read',
-    STOCKTAKE_START_COUNT: 'stocktake.startCount',
-    STOCKTAKE_SUBMIT_COUNT: 'stocktake.submitCount',
-    STOCKTAKE_APPROVE: 'stocktake.approve',
-    STOCKTAKE_APPLY: 'stocktake.apply',
-
-    // Reports
-    REPORTS_VIEW: 'reports.view',
-    REPORTS_EXPORT: 'reports.export',
+    // ...
 } as const;
+*/
 
 export interface RouteConfig {
     label: string;
-    icon?: string; // Icon name as string, component lookup handled in UI
+    icon?: string;
     href: string;
     requiredPermissions: Permission[];
-    navGroup: 'Dashboard' | 'Inventory' | 'Operations' | 'Admin' | 'Reports' | 'Settings';
+    anyPermissions?: Permission[];
+    navGroup: 'Dashboard' | 'Inventory' | 'Operations' | 'Admin' | 'Reports';
 }
 
 export const APP_ROUTES: RouteConfig[] = [
@@ -63,35 +34,88 @@ export const APP_ROUTES: RouteConfig[] = [
         label: 'Dashboard',
         icon: 'LayoutDashboard',
         href: '/',
-        requiredPermissions: [], // Public for auth users
+        requiredPermissions: [],
         navGroup: 'Dashboard',
     },
+
+    // === Inventory Group ===
     {
-        label: 'Items',
-        icon: 'Package',
-        href: '/items',
-        requiredPermissions: [PERMISSIONS.ITEMS_READ],
-        navGroup: 'Inventory',
-    },
-    {
-        label: 'Requests',
+        label: 'Staff Requests',
         icon: 'FileText',
         href: '/requests',
         requiredPermissions: [PERMISSIONS.REQUESTS_READ],
         navGroup: 'Inventory',
     },
     {
+        label: 'Review Queue',
+        icon: 'Inbox',
+        href: '/my-assignments',
+        requiredPermissions: [PERMISSIONS.REQUESTS_READ],
+        navGroup: 'Inventory',
+    },
+    {
+        label: 'Stock Browser',
+        icon: 'Package',
+        href: '/inventory',
+        requiredPermissions: [PERMISSIONS.STOCK_READ],
+        navGroup: 'Inventory',
+    },
+    {
+        label: 'Reservations',
+        icon: 'Lock',
+        href: '/reservations',
+        requiredPermissions: [PERMISSIONS.RESERVATIONS_READ],
+        navGroup: 'Inventory',
+    },
+    {
+        label: 'Stock Snapshots',
+        icon: 'History',
+        href: '/inventory/stock-snapshots',
+        requiredPermissions: [PERMISSIONS.STOCK_READ],
+        navGroup: 'Inventory',
+    },
+    {
+        label: 'Locations',
+        icon: 'MapPin',
+        href: '/inventory/locations',
+        requiredPermissions: [PERMISSIONS.STORE_LOCATIONS_READ],
+        navGroup: 'Inventory',
+    },
+    {
+        label: 'Reason Codes',
+        icon: 'Tags',
+        href: '/inventory/reason-codes',
+        requiredPermissions: [PERMISSIONS.REASON_CODES_READ],
+        navGroup: 'Inventory',
+    },
+
+    // === Operations Group ===
+    {
         label: 'Receive Stock',
-        icon: 'Download',
+        icon: 'PlusCircle',
         href: '/inventory/receive',
         requiredPermissions: [PERMISSIONS.INVENTORY_RECEIVE],
         navGroup: 'Operations',
     },
     {
+        label: 'Transfer Stock',
+        icon: 'ArrowLeftRight',
+        href: '/inventory/transfer',
+        requiredPermissions: [PERMISSIONS.INVENTORY_TRANSFER],
+        navGroup: 'Operations',
+    },
+    {
         label: 'Return Stock',
-        icon: 'Upload',
+        icon: 'RotateCcw',
         href: '/inventory/return',
         requiredPermissions: [PERMISSIONS.INVENTORY_RETURN],
+        navGroup: 'Operations',
+    },
+    {
+        label: 'Adjust Stock',
+        icon: 'SlidersHorizontal',
+        href: '/inventory/adjust',
+        requiredPermissions: [PERMISSIONS.INVENTORY_ADJUST],
         navGroup: 'Operations',
     },
     {
@@ -101,9 +125,11 @@ export const APP_ROUTES: RouteConfig[] = [
         requiredPermissions: [PERMISSIONS.STOCKTAKE_READ],
         navGroup: 'Operations',
     },
+
+    // === Reports Group ===
     {
         label: 'Stock On Hand',
-        icon: 'BarChart3',
+        icon: 'Layers',
         href: '/reports/stock-on-hand',
         requiredPermissions: [PERMISSIONS.REPORTS_VIEW],
         navGroup: 'Reports',
@@ -116,32 +142,133 @@ export const APP_ROUTES: RouteConfig[] = [
         navGroup: 'Reports',
     },
     {
+        label: 'Movement Ledger',
+        icon: 'List',
+        href: '/inventory/ledger',
+        requiredPermissions: [PERMISSIONS.LEDGER_READ],
+        navGroup: 'Reports',
+    },
+    {
+        label: 'Request KPIs',
+        icon: 'LineChart',
+        href: '/reports/request-kpis',
+        requiredPermissions: [PERMISSIONS.REPORTS_VIEW],
+        navGroup: 'Reports',
+    },
+    {
+        label: 'Low Stock Alert',
+        icon: 'AlertTriangle',
+        href: '/reports/low-stock',
+        requiredPermissions: [PERMISSIONS.REPORTS_VIEW],
+        navGroup: 'Reports',
+    },
+    {
+        label: 'Adjustments Sum',
+        icon: 'FilePieChart',
+        href: '/reports/adjustments-summary',
+        requiredPermissions: [PERMISSIONS.REPORTS_VIEW],
+        navGroup: 'Reports',
+    },
+
+    // === Admin Group ===
+    // RBAC
+    {
         label: 'Users',
         icon: 'Users',
-        href: '/admin/users',
+        href: '/admin/rbac/users',
         requiredPermissions: [PERMISSIONS.USERS_READ],
         navGroup: 'Admin',
     },
+    {
+        label: 'Roles',
+        icon: 'Shield',
+        href: '/admin/roles',
+        requiredPermissions: [PERMISSIONS.ROLES_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Permissions',
+        icon: 'KeyRound',
+        href: '/admin/rbac/permissions',
+        requiredPermissions: [PERMISSIONS.PERMISSIONS_READ],
+        navGroup: 'Admin',
+    },
+    // Org
+    {
+        label: 'Branches',
+        icon: 'Building2',
+        href: '/admin/org/branches',
+        requiredPermissions: [PERMISSIONS.BRANCHES_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Departments',
+        icon: 'Briefcase',
+        href: '/admin/org/departments',
+        requiredPermissions: [PERMISSIONS.DEPARTMENTS_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Units',
+        icon: 'Boxes',
+        href: '/admin/org/units',
+        requiredPermissions: [PERMISSIONS.UNITS_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Job Roles',
+        icon: 'BadgeCheck',
+        href: '/admin/org/job-roles',
+        requiredPermissions: [PERMISSIONS.JOB_ROLES_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Store Locations',
+        icon: 'Map',
+        href: '/admin/org/store-locations',
+        requiredPermissions: [PERMISSIONS.STORE_LOCATIONS_READ],
+        navGroup: 'Admin',
+    },
+    // Catalog
+    {
+        label: 'Items',
+        icon: 'Package',
+        href: '/admin/catalog/items',
+        requiredPermissions: [PERMISSIONS.ITEMS_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Categories',
+        icon: 'LayoutGrid',
+        href: '/admin/catalog/categories',
+        requiredPermissions: [PERMISSIONS.CATEGORIES_READ],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Code Registry',
+        icon: 'Tags',
+        href: '/admin/catalog/reason-codes',
+        requiredPermissions: [PERMISSIONS.REASON_CODES_READ],
+        navGroup: 'Admin',
+    },
+    // Workflow & Meta
+    {
+        label: 'Lookups Registry',
+        icon: 'Sliders',
+        href: '/admin/lookups',
+        requiredPermissions: [],
+        anyPermissions: [PERMISSIONS.LOOKUPS_READ, PERMISSIONS.LOOKUPS_MANAGE],
+        navGroup: 'Admin',
+    },
+    {
+        label: 'Workflow Templates',
+        icon: 'Settings2',
+        href: '/admin/templates',
+        requiredPermissions: [],
+        anyPermissions: [PERMISSIONS.TEMPLATES_READ, PERMISSIONS.TEMPLATES_MANAGE],
+        navGroup: 'Admin',
+    },
 ];
-
-export const PAGE_ACTIONS = {
-    items: {
-        create: [PERMISSIONS.ITEMS_CREATE],
-        edit: [PERMISSIONS.ITEMS_UPDATE],
-        delete: [PERMISSIONS.ITEMS_DELETE],
-    },
-    requests: {
-        create: [PERMISSIONS.REQUESTS_CREATE],
-        submit: [PERMISSIONS.REQUESTS_SUBMIT],
-        approve: [PERMISSIONS.REQUESTS_APPROVE],
-        reject: [PERMISSIONS.REQUESTS_REJECT],
-        fulfill: [PERMISSIONS.REQUESTS_FULFILL],
-    },
-    stocktakes: {
-        create: [PERMISSIONS.STOCKTAKE_CREATE],
-        apply: [PERMISSIONS.STOCKTAKE_APPLY],
-    },
-};
 
 // Helpers
 
@@ -150,17 +277,23 @@ export function hasAll(userPerms: Permission[], requiredPerms: Permission[]): bo
     return requiredPerms.every((p) => userPerms.includes(p));
 }
 
-export function hasAny(userPerms: Permission[], requiredPerms: Permission[]): boolean {
-    if (requiredPerms.length === 0) return true;
-    return requiredPerms.some((p) => userPerms.includes(p));
+export function hasAny(userPerms: Permission[], anyPerms: Permission[]): boolean {
+    if (!anyPerms || anyPerms.length === 0) return true;
+    return anyPerms.some((p) => userPerms.includes(p));
 }
 
 export function canAccessRoute(userPerms: Permission[], routeHref: string): boolean {
     const route = APP_ROUTES.find((r) => r.href === routeHref);
-    if (!route) return true; // Default to accessible if not defined, or logic for 404
-    return hasAll(userPerms, route.requiredPermissions);
-}
+    if (!route) return true;
 
-export function canDoAction(userPerms: Permission[], requiredPerms: Permission[]): boolean {
-    return hasAll(userPerms, requiredPerms);
+    // SuperAdmin bypass
+    // if (userPerms.includes('super_admin')) return true;
+
+    // Check required (ALL)
+    const accessRequired = hasAll(userPerms, route.requiredPermissions);
+
+    // Check any (ONE OF) if defined
+    const accessAny = route.anyPermissions ? hasAny(userPerms, route.anyPermissions) : true;
+
+    return accessRequired && accessAny;
 }

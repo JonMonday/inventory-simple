@@ -1,115 +1,96 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { StocktakeService } from "@/services/stocktake.service";
 import { PageHeader } from "@/components/shared/page-header";
-import { DataTable } from "@/components/shared/data-table";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ColumnDef } from "@tanstack/react-table";
-import { ClipboardCheck, Plus, Eye, MoreHorizontal, ArrowRight } from "lucide-react";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Loader2, Plus, ArrowRight, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { PermissionGate } from "@/components/permission-gate";
-import { PERMISSIONS } from "@/permissions/matrix";
+import { toast } from "sonner";
 
 export default function StocktakesPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const { data: stocktakes, isLoading } = useQuery({
         queryKey: ["stocktakes"],
-        queryFn: async () => {
-            const res = await api.get("/stocktakes");
-            return res.data;
-        },
+        queryFn: StocktakeService.list,
     });
 
-    const columns: ColumnDef<any>[] = [
-        {
-            accessorKey: "title",
-            header: "Title",
-            cell: ({ row }) => (
-                <div className="flex flex-col">
-                    <span className="font-medium">{row.getValue("title")}</span>
-                    <span className="text-xs text-muted-foreground">{row.original.location?.name}</span>
-                </div>
-            ),
+    const createMutation = useMutation({
+        mutationFn: (storeLocationId: string) => StocktakeService.create(storeLocationId),
+        onSuccess: (res: any) => {
+            toast.success("Stocktake initiated");
+            router.push(`/stocktakes/${res.data.id}`);
         },
-        {
-            accessorKey: "status",
-            header: "Status",
-            cell: ({ row }) => {
-                const val = row.getValue("status") as string;
-                let type: any = "INFO";
-                if (val === "APPLIED") type = "SUCCESS";
-                if (val === "CANCELLED") type = "DANGER";
-                if (val === "IN_PROGRESS" || val === "COUNTING") type = "WARNING";
+        onError: (err: any) => {
+            toast.error(err.response?.data?.message || "Failed to create stocktake");
+        }
+    });
 
-                return <StatusBadge label={val} type={type} />;
-            },
-        },
-        {
-            accessorKey: "createdAt",
-            header: "Date Created",
-            cell: ({ row }) => format(new Date(row.original.createdAt), "MMM dd, yyyy"),
-        },
-        {
-            id: "actions",
-            cell: ({ row }) => {
-                const stocktake = row.original;
-                return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => router.push(`/stocktakes/${stocktake.id}`)}>
-                                <Eye className="mr-2 h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <PermissionGate permissions={[PERMISSIONS.STOCKTAKE_START_COUNT]}>
-                                {stocktake.status === "SCHEDULED" && (
-                                    <DropdownMenuItem className="text-primary">
-                                        <ArrowRight className="mr-2 h-4 w-4" /> Start Counting
-                                    </DropdownMenuItem>
-                                )}
-                            </PermissionGate>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                );
-            },
-        },
-    ];
+    if (isLoading) {
+        return (
+            <div className="h-[60vh] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="Inventory Stocktakes"
-                subtitle="Perform periodic physical counts to reconcile and adjust system stock levels."
+                subtitle="Reconcile and adjust system stock levels through periodic physical audits."
                 action={{
-                    label: "New Stocktake",
-                    onClick: () => router.push("/stocktakes/new"),
+                    label: "New Audit",
+                    onClick: () => {
+                        // For simplicity, we create at HQ Main if prompted or use a default
+                        const locId = window.prompt("Enter Store Location ID (e.g., HQ-MAIN-S)");
+                        if (locId) createMutation.mutate(locId);
+                    },
                     icon: <Plus className="w-4 h-4" />,
                 }}
             />
 
-            <DataTable
-                columns={columns}
-                data={stocktakes || []}
-                searchKey="title"
-                searchPlaceholder="Search stocktakes..."
-            />
+            <Card>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Audit #</TableHead>
+                            <TableHead>Location</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Started</TableHead>
+                            <TableHead className="text-right">Manage</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {stocktakes?.map((s) => (
+                            <TableRow key={s.id}>
+                                <TableCell className="font-mono font-bold text-primary">{s.readableId}</TableCell>
+                                <TableCell>{s.storeLocation.name}</TableCell>
+                                <TableCell>
+                                    <StatusBadge
+                                        label={s.status.label}
+                                        type={s.status.code === "APPLIED" ? "SUCCESS" : s.status.code === "CANCELLED" ? "DANGER" : "WARNING"}
+                                    />
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                    {format(new Date(s.initiatedAt), "MMM dd, HH:mm")}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <Button size="sm" variant="ghost" onClick={() => router.push(`/stocktakes/${s.id}`)}>
+                                        Open <ArrowRight className="ml-2 w-3 h-3" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </Card>
         </div>
     );
 }

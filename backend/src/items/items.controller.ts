@@ -3,17 +3,21 @@ import {
     Get,
     Post,
     Put,
-    Delete,
     Body,
     Param,
     Query,
     UseGuards,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { ItemsService } from './items.service';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { CreateItemDto, UpdateItemDto } from './dto/item.dto';
+import { ItemQueryDto } from '../common/dto/query.dto';
 
+@ApiTags('catalog')
+@ApiBearerAuth('JWT-auth')
 @Controller('items')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class ItemsController {
@@ -21,69 +25,58 @@ export class ItemsController {
 
     @Get()
     @Permissions('items.read')
-    async findAll(
-        @Query('categoryId') categoryId?: string,
-        @Query('status') status?: string,
-        @Query('search') search?: string,
-    ) {
-        return this.itemsService.findAll({ categoryId, status, search });
+    @ApiOperation({ summary: 'Get all items with optional filters' })
+    async findAll(@Query() query: ItemQueryDto) {
+        return this.itemsService.findAll(query);
     }
 
     @Get(':id')
     @Permissions('items.read')
+    @ApiOperation({ summary: 'Get item by ID' })
     async findOne(@Param('id') id: string) {
         return this.itemsService.findOne(id);
     }
 
     @Post()
     @Permissions('items.create')
-    async create(
-        @Body()
-        createDto: {
-            code: string;
-            name: string;
-            description?: string;
-            categoryId: string;
-            unitOfMeasure: string;
-            reorderLevel?: number;
-            reorderQuantity?: number;
-        },
-    ) {
+    @ApiOperation({ summary: 'Create new item' })
+    @ApiBody({ type: CreateItemDto })
+    async create(@Body() createDto: CreateItemDto) {
         return this.itemsService.create(createDto);
     }
 
     @Put(':id')
     @Permissions('items.update')
-    async update(
-        @Param('id') id: string,
-        @Body()
-        updateDto: {
-            name?: string;
-            description?: string;
-            categoryId?: string;
-            unitOfMeasure?: string;
-            status?: string;
-            reorderLevel?: number;
-            reorderQuantity?: number;
-        },
-    ) {
+    @ApiOperation({ summary: 'Update item' })
+    @ApiBody({ type: UpdateItemDto })
+    async update(@Param('id') id: string, @Body() updateDto: UpdateItemDto) {
         return this.itemsService.update(id, updateDto);
     }
 
-    @Delete(':id')
-    @Permissions('items.delete')
-    async delete(@Param('id') id: string) {
-        return this.itemsService.delete(id);
+    @Post(':id/deactivate')
+    @Permissions('items.deactivate')
+    @ApiOperation({ summary: 'Deactivate item' })
+    async deactivate(@Param('id') id: string) {
+        return this.itemsService.deactivate(id);
+    }
+
+    @Post(':id/reactivate')
+    @Permissions('items.activate')
+    @ApiOperation({ summary: 'Reactivate item' })
+    async reactivate(@Param('id') id: string) {
+        return this.itemsService.reactivate(id);
     }
 
     @Get(':id/stock')
     @Permissions('stock.read')
+    @ApiOperation({ summary: 'Get stock levels for item' })
     async getStockLevels(@Param('id') id: string) {
         return this.itemsService.getStockLevels(id);
     }
 
     @Get('categories')
     @Permissions('items.read')
+    @ApiOperation({ summary: 'Get all categories' })
     async getCategories() {
         return this.itemsService.findAllCategories();
     }

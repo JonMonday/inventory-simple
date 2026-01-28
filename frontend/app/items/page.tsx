@@ -74,11 +74,13 @@ export default function ItemsPage() {
             accessorKey: "status",
             header: "Status",
             cell: ({ row }) => {
-                const status = row.getValue("status") as string;
+                const status = row.original.status;
+                const code = status?.code || "ACTIVE";
+                const label = status?.label || "Active";
                 return (
                     <StatusBadge
-                        label={status}
-                        type={status === "ACTIVE" ? "SUCCESS" : "NEUTRAL"}
+                        label={label}
+                        type={code === "ACTIVE" ? "SUCCESS" : "NEUTRAL"}
                     />
                 );
             },
@@ -105,7 +107,7 @@ export default function ItemsPage() {
                                 </DropdownMenuItem>
                             </PermissionGate>
                             <DropdownMenuSeparator />
-                            <PermissionGate permissions={[PERMISSIONS.ITEMS_DELETE]}>
+                            <PermissionGate permissions={[PERMISSIONS.ITEMS_DEACTIVATE]}>
                                 <DropdownMenuItem className="text-rose-500 focus:text-rose-500">
                                     <Trash2 className="mr-2 h-4 w-4" /> Delete Item
                                 </DropdownMenuItem>

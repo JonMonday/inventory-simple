@@ -15,6 +15,12 @@ async function main() {
 
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
+    // Organization structure for admin
+    const branch = await prisma.branch.upsert({ where: { code: 'MAIN' }, update: {}, create: { code: 'MAIN', name: 'Main Branch' } });
+    const dept = await prisma.department.upsert({ where: { code: 'IT' }, update: {}, create: { code: 'IT', name: 'IT', branchId: branch.id } });
+    const unit = await prisma.unit.upsert({ where: { code: 'IT_UNIT' }, update: {}, create: { code: 'IT_UNIT', name: 'IT Unit', departmentId: dept.id } });
+    const jobRole = await prisma.jobRole.upsert({ where: { code: 'IT_ADMIN' }, update: {}, create: { code: 'IT_ADMIN', name: 'IT Admin', unitId: unit.id } });
+
     // Create Admin
     await prisma.user.create({
         data: {
@@ -22,18 +28,23 @@ async function main() {
             passwordHash,
             fullName: 'Super Admin',
             isActive: true,
+            branchId: branch.id,
+            departmentId: dept.id,
+            unitId: unit.id,
+            jobRoleId: jobRole.id,
             roles: {
                 create: {
                     role: {
                         connectOrCreate: {
                             where: { name: 'SUPER_ADMIN' },
                             create: {
+                                code: 'SUPER_ADMIN',
                                 name: 'SUPER_ADMIN',
                                 isSystemRole: true,
                                 permissions: {
                                     create: [
-                                        { permission: { connectOrCreate: { where: { resource_action: { resource: 'users', action: 'create' } }, create: { resource: 'users', action: 'create' } } } },
-                                        { permission: { connectOrCreate: { where: { resource_action: { resource: 'users', action: 'read' } }, create: { resource: 'users', action: 'read' } } } },
+                                        { permission: { connectOrCreate: { where: { key: 'users.create' }, create: { key: 'users.create', label: 'Create Users', group: 'RBAC' } } } },
+                                        { permission: { connectOrCreate: { where: { key: 'users.read' }, create: { key: 'users.read', label: 'Read Users', group: 'RBAC' } } } },
                                     ]
                                 }
                             }
@@ -60,7 +71,10 @@ async function main() {
         await axios.post(`${API_URL}/users`, {
             email: newUserEmail,
             fullName: 'Test Employee',
-            department: 'Warehouse'
+            branchId: branch.id,
+            departmentId: dept.id,
+            unitId: unit.id,
+            jobRoleId: jobRole.id
         }, {
             headers: { Authorization: `Bearer ${adminToken}` }
         });

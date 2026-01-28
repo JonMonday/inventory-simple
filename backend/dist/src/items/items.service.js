@@ -21,7 +21,7 @@ let ItemsService = class ItemsService {
         return this.prisma.item.findMany({
             where: {
                 ...(filters?.categoryId && { categoryId: filters.categoryId }),
-                ...(filters?.status && { status: filters.status }),
+                ...(filters?.status && { status: { code: filters.status } }),
                 ...(filters?.search && {
                     OR: [
                         { code: { contains: filters.search } },
@@ -32,7 +32,11 @@ let ItemsService = class ItemsService {
             },
             include: {
                 category: true,
-                stockSnapshots: true,
+                stockSnapshots: {
+                    include: {
+                        storeLocation: true,
+                    },
+                },
             },
             orderBy: {
                 code: 'asc',
@@ -46,7 +50,7 @@ let ItemsService = class ItemsService {
                 category: true,
                 stockSnapshots: {
                     include: {
-                        location: true,
+                        storeLocation: true,
                     },
                 },
             },
@@ -56,7 +60,7 @@ let ItemsService = class ItemsService {
         return this.prisma.item.create({
             data: {
                 ...data,
-                status: 'ACTIVE',
+                status: { connect: { code: 'ACTIVE' } },
             },
             include: {
                 category: true,
@@ -66,23 +70,32 @@ let ItemsService = class ItemsService {
     async update(id, data) {
         return this.prisma.item.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                ...(data.status && { status: { connect: { code: data.status } } })
+            },
             include: {
                 category: true,
             },
         });
     }
-    async delete(id) {
+    async deactivate(id) {
         return this.prisma.item.update({
             where: { id },
-            data: { status: 'DISCONTINUED' },
+            data: { status: { connect: { code: 'DISCONTINUED' } } },
+        });
+    }
+    async reactivate(id) {
+        return this.prisma.item.update({
+            where: { id },
+            data: { status: { connect: { code: 'ACTIVE' } } },
         });
     }
     async getStockLevels(itemId) {
         return this.prisma.stockSnapshot.findMany({
             where: { itemId },
             include: {
-                location: true,
+                storeLocation: true,
             },
         });
     }

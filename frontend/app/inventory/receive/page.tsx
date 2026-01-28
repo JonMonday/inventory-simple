@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import { InventoryService } from "@/services/inventory.service";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Trash2, Plus, Loader2, Save, Download } from "lucide-react";
+import { Trash2, Plus, Loader2, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
-const restockSchema = z.object({
+const receiveSchema = z.object({
     locationId: z.string().min(1, "Target location is required"),
     referenceNo: z.string().optional(),
     comments: z.string().optional(),
@@ -33,7 +34,7 @@ const restockSchema = z.object({
     })).min(1, "At least one item is required"),
 });
 
-type RestockFormValues = z.infer<typeof restockSchema>;
+type ReceiveFormValues = z.infer<typeof receiveSchema>;
 
 export default function ReceiveStockPage() {
     const router = useRouter();
@@ -43,19 +44,16 @@ export default function ReceiveStockPage() {
         queryFn: async () => {
             const res = await api.get("/items");
             return res.data;
-        },
+        }
     });
 
     const { data: locations } = useQuery({
         queryKey: ["locations"],
-        queryFn: async () => {
-            const res = await api.get("/inventory/locations");
-            return res.data;
-        },
+        queryFn: InventoryService.getLocations
     });
 
-    const form = useForm<RestockFormValues>({
-        resolver: zodResolver(restockSchema),
+    const form = useForm<ReceiveFormValues>({
+        resolver: zodResolver(receiveSchema),
         defaultValues: {
             locationId: "",
             referenceNo: "",
@@ -70,20 +68,17 @@ export default function ReceiveStockPage() {
     });
 
     const mutation = useMutation({
-        mutationFn: async (values: RestockFormValues) => {
-            const res = await api.post("/inventory/receive", values);
-            return res.data;
-        },
+        mutationFn: InventoryService.receive,
         onSuccess: () => {
             toast.success("Stock received successfully!");
-            router.push("/items");
+            router.push("/inventory");
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || "Failed to receive stock");
         },
     });
 
-    const onSubmit = (values: RestockFormValues) => {
+    const onSubmit = (values: ReceiveFormValues) => {
         mutation.mutate(values);
     };
 
@@ -91,7 +86,7 @@ export default function ReceiveStockPage() {
         <div className="max-w-5xl mx-auto space-y-6">
             <PageHeader
                 title="Receive Inventory Stock"
-                subtitle="Record the arrival of new stock from suppliers or other branches."
+                subtitle="Record the arrival of new stock into a store or warehouse."
             />
 
             <Form {...form}>
@@ -99,8 +94,7 @@ export default function ReceiveStockPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Card className="md:col-span-1">
                             <CardHeader>
-                                <CardTitle>Header Details</CardTitle>
-                                <CardDescription>Basic information about this shipment.</CardDescription>
+                                <CardTitle className="text-sm">Header Details</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <FormField
@@ -108,17 +102,17 @@ export default function ReceiveStockPage() {
                                     name="locationId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Target Location</FormLabel>
+                                            <FormLabel className="text-xs">Destination Store</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select destination" />
+                                                        <SelectValue placeholder="Select location" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
                                                     {locations?.map((loc: any) => (
                                                         <SelectItem key={loc.id} value={loc.id}>
-                                                            {loc.name} ({loc.code})
+                                                            {loc.name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -133,23 +127,9 @@ export default function ReceiveStockPage() {
                                     name="referenceNo"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>PO / Invoice Number</FormLabel>
+                                            <FormLabel className="text-xs">PO / Reference</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="REF-12345" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="comments"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Comments</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Additional notes..." {...field} />
+                                                <Input placeholder="REF-001" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -161,19 +141,17 @@ export default function ReceiveStockPage() {
                         <div className="md:col-span-2 space-y-6">
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Shipment Lines</CardTitle>
-                                    <CardDescription>Items and quantities being received.</CardDescription>
+                                    <CardTitle className="text-sm">Items to Post</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     {fields.map((field, index) => (
                                         <div key={field.id} className="grid grid-cols-12 gap-3 items-end p-3 rounded-lg border bg-muted/20 relative group">
-                                            <div className="col-span-12 lg:col-span-6">
+                                            <div className="col-span-7">
                                                 <FormField
                                                     control={form.control}
                                                     name={`lines.${index}.itemId`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Item</FormLabel>
                                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                                 <FormControl>
                                                                     <SelectTrigger className="h-9">
@@ -193,40 +171,18 @@ export default function ReceiveStockPage() {
                                                     )}
                                                 />
                                             </div>
-                                            <div className="col-span-6 lg:col-span-3">
+                                            <div className="col-span-4">
                                                 <FormField
                                                     control={form.control}
                                                     name={`lines.${index}.quantity`}
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Qty</FormLabel>
                                                             <FormControl>
                                                                 <Input
                                                                     type="number"
                                                                     className="h-9"
                                                                     {...field}
                                                                     onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                            <div className="col-span-5 lg:col-span-2">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`lines.${index}.unitCost`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Unit Cost</FormLabel>
-                                                            <FormControl>
-                                                                <Input
-                                                                    type="number"
-                                                                    step="0.01"
-                                                                    className="h-9"
-                                                                    {...field}
-                                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                                                                 />
                                                             </FormControl>
                                                             <FormMessage />
@@ -256,7 +212,7 @@ export default function ReceiveStockPage() {
                                         className="w-full border-dashed"
                                         onClick={() => append({ itemId: "", quantity: 1, unitCost: 0 })}
                                     >
-                                        <Plus className="mr-2 h-4 w-4" /> Add Another Item
+                                        <Plus className="mr-2 h-4 w-4" /> Add Line
                                     </Button>
                                 </CardContent>
                                 <CardFooter className="flex justify-between border-t p-6 bg-muted/50">

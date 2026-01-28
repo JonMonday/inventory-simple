@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
+import { hashPassword, verifyPassword } from '../common/utils/password.utils';
 
 @Injectable()
 export class AuthService {
@@ -19,14 +19,31 @@ export class AuthService {
                         role: true,
                     },
                 },
+                department: true,
+                unit: true,
+                branch: true,
             },
         });
+
+        // Dev-only debug logging (won't expose in production)
+        if (process.env.NODE_ENV !== 'production') {
+            if (!user) {
+                console.log(`[AUTH DEBUG] User not found: ${email}`);
+            } else if (!user.isActive) {
+                console.log(`[AUTH DEBUG] User inactive: ${email}`);
+            }
+        }
 
         if (!user || !user.isActive) {
             return null;
         }
 
-        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        const isPasswordValid = await verifyPassword(password, user.passwordHash);
+
+        if (process.env.NODE_ENV !== 'production' && !isPasswordValid) {
+            console.log(`[AUTH DEBUG] Password mismatch for: ${email}`);
+        }
+
         if (!isPasswordValid) {
             return null;
         }
@@ -52,7 +69,7 @@ export class AuthService {
     }
 
     async changePassword(userId: string, newPassword: string) {
-        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const passwordHash = await hashPassword(newPassword);
 
         await this.prisma.user.update({
             where: { id: userId },
@@ -99,13 +116,13 @@ export class AuthService {
 
         // Add direct user permissions
         user.permissions.forEach((up) => {
-            permissionSet.add(`${up.permission.resource}.${up.permission.action}`);
+            permissionSet.add(up.permission.key);
         });
 
         // Add role-based permissions
         user.roles.forEach((ur) => {
             ur.role.permissions.forEach((rp) => {
-                permissionSet.add(`${rp.permission.resource}.${rp.permission.action}`);
+                permissionSet.add(rp.permission.key);
             });
         });
 

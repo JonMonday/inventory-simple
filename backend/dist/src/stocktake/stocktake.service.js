@@ -20,25 +20,36 @@ let StocktakeService = class StocktakeService {
         this.prisma = prisma;
         this.inventoryService = inventoryService;
     }
+    async getStatusId(code) {
+        const s = await this.prisma.stocktakeStatus.findUnique({ where: { code } });
+        if (!s)
+            throw new common_1.InternalServerErrorException(`Stocktake status ${code} not found`);
+        return s.id;
+    }
     async create(userId, dto) {
+        const statusId = await this.getStatusId('DRAFT');
         return this.prisma.stocktake.create({
             data: {
                 name: dto.name,
-                locationId: dto.locationId,
-                status: 'DRAFT',
+                storeLocationId: dto.locationId,
+                statusId,
                 createdByUserId: userId
             }
         });
     }
     async startCounting(id, userId) {
+        const countingStatusId = await this.getStatusId('COUNTING');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { status: true }
+            });
             if (!stocktake)
                 throw new common_1.NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'DRAFT')
+            if (stocktake.status.code !== 'DRAFT')
                 throw new common_1.BadRequestException('Can only start counting from DRAFT status');
             const snapshots = await tx.stockSnapshot.findMany({
-                where: { locationId: stocktake.locationId }
+                where: { storeLocationId: stocktake.storeLocationId }
             });
             await tx.stocktakeLine.deleteMany({ where: { stocktakeId: id } });
             for (const snap of snapshots) {
@@ -54,7 +65,7 @@ let StocktakeService = class StocktakeService {
             return tx.stocktake.update({
                 where: { id },
                 data: {
-                    status: 'COUNTING',
+                    statusId: countingStatusId,
                     startedAt: new Date()
                 },
                 include: { lines: true }
@@ -62,11 +73,15 @@ let StocktakeService = class StocktakeService {
         });
     }
     async submitCount(id, userId, dto) {
+        const completedStatusId = await this.getStatusId('COMPLETED');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { status: true }
+            });
             if (!stocktake)
                 throw new common_1.NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'COUNTING')
+            if (stocktake.status.code !== 'COUNTING')
                 throw new common_1.BadRequestException('Stocktake must be in COUNTING status');
             for (const lineDto of dto.lines) {
                 let line = await tx.stocktakeLine.findFirst({
@@ -97,30 +112,35 @@ let StocktakeService = class StocktakeService {
             }
             return tx.stocktake.update({
                 where: { id },
-                data: { status: 'SUBMITTED' },
+                data: { statusId: completedStatusId },
                 include: { lines: true }
             });
         });
     }
     async approve(id, userId) {
+        const statusId = await this.getStatusId('APPROVED');
         return this.prisma.stocktake.update({
             where: { id },
             data: {
-                status: 'APPROVED',
+                statusId,
                 approvedByUserId: userId,
                 approvedAt: new Date()
             }
         });
     }
     async apply(id, userId) {
+        const appliedStatusId = await this.getStatusId('APPLIED');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id }, include: { lines: true } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { lines: true, status: true }
+            });
             if (!stocktake)
                 throw new common_1.NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'APPROVED')
+            if (stocktake.status.code !== 'APPROVED')
                 throw new common_1.BadRequestException('Stocktake must be APPROVED before applying');
             const reasonCode = await tx.reasonCode.findFirst({
-                where: { allowedMovements: { some: { movementType: 'ADJUSTMENT' } }, isActive: true }
+                where: { allowedMovements: { some: { ledgerMovementType: { code: 'ADJUSTMENT' } } }, isActive: true }
             });
             if (!reasonCode)
                 throw new common_1.BadRequestException('No active ADJUSTMENT reason code found');
@@ -128,20 +148,20 @@ let StocktakeService = class StocktakeService {
                 if (line.variance !== 0 && line.variance !== null) {
                     await this.inventoryService.recordMovement(tx, {
                         itemId: line.itemId,
-                        locationId: stocktake.locationId,
+                        locationId: stocktake.storeLocationId,
                         movementType: 'ADJUSTMENT',
                         quantity: line.variance,
                         reasonCodeId: reasonCode.id,
                         userId,
                         referenceNo: `STOCKTAKE-${stocktake.name}`,
-                        comments: `Variance: ${line.variance} (System: ${line.systemQuantity}, Counted: ${line.countedQuantity})`
+                        comments: `Variance: ${line.variance}`
                     });
                 }
             }
             return tx.stocktake.update({
                 where: { id },
                 data: {
-                    status: 'APPLIED',
+                    statusId: appliedStatusId,
                     completedAt: new Date()
                 }
             });
@@ -150,12 +170,12 @@ let StocktakeService = class StocktakeService {
     async findOne(id) {
         return this.prisma.stocktake.findUnique({
             where: { id },
-            include: { lines: { include: { item: true } }, createdBy: true, location: true }
+            include: { lines: { include: { item: true } }, createdBy: true, storeLocation: true, status: true }
         });
     }
     async findAll() {
         return this.prisma.stocktake.findMany({
-            include: { createdBy: true, location: true },
+            include: { createdBy: true, storeLocation: true, status: true },
             orderBy: { createdAt: 'desc' }
         });
     }

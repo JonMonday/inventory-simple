@@ -1,11 +1,9 @@
 import { AuthService } from './auth.service';
+import { LoginDto, ChangePasswordDto } from './dto';
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
-    login(loginDto: {
-        email: string;
-        password: string;
-    }): Promise<{
+    login(loginDto: LoginDto): Promise<{
         permissions: string[];
         access_token: string;
         user: {
@@ -17,9 +15,7 @@ export declare class AuthController {
             roles: any;
         };
     }>;
-    changePassword(req: any, body: {
-        password: string;
-    }): Promise<{
+    changePassword(req: any, changePasswordDto: ChangePasswordDto): Promise<{
         message: string;
     }>;
 }

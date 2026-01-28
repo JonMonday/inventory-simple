@@ -5,11 +5,14 @@ import api from "@/lib/api";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { FileDown, Package, Building, History, Search } from "lucide-react";
+import { FileDown, Building, History, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
 import { useState } from "react";
+import { TwoColumnLayout } from "@/components/layout/TwoColumnLayout";
+import { FilterSidebar } from "@/components/layout/FilterSidebar";
 
 export default function StockOnHandReportPage() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -102,12 +105,36 @@ export default function StockOnHandReportPage() {
                 }
             />
 
-            <DataTable
-                columns={columns}
-                data={stock || []}
-                searchKey="itemName"
-                searchPlaceholder="Filter items..."
-            />
+            <TwoColumnLayout
+                sidebarPosition="left"
+                mobileSidebarFirst={true}
+                sidebar={
+                    <FilterSidebar title="Search & Filter">
+                        <div className="space-y-2">
+                            <Label htmlFor="search">Search Items</Label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    id="search"
+                                    placeholder="Filter by item name or code..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
+                    </FilterSidebar>
+                }
+            >
+                <div className="overflow-x-auto">
+                    <DataTable
+                        columns={columns}
+                        data={stock || []}
+                        searchKey="itemName"
+                        searchPlaceholder="Filter items..."
+                    />
+                </div>
+            </TwoColumnLayout>
         </div>
     );
 }

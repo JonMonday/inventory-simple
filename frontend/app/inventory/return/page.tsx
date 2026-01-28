@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import { InventoryService } from "@/services/inventory.service";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-    FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -20,9 +19,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Loader2, ArrowLeftRight, Save, Undo2 } from "lucide-react";
+import { Loader2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
 const returnSchema = z.object({
     itemId: z.string().min(1, "Please select an item"),
@@ -40,10 +40,7 @@ export default function ReturnStockPage() {
 
     const { data: locations } = useQuery({
         queryKey: ["locations"],
-        queryFn: async () => {
-            const res = await api.get("/inventory/locations");
-            return res.data;
-        },
+        queryFn: InventoryService.getLocations
     });
 
     const { data: items } = useQuery({
@@ -51,25 +48,13 @@ export default function ReturnStockPage() {
         queryFn: async () => {
             const res = await api.get("/items");
             return res.data;
-        },
+        }
     });
 
     const { data: reasonCodes } = useQuery({
         queryKey: ["reason-codes"],
-        queryFn: async () => {
-            const res = await api.get("/inventory/reason-codes");
-            return res.data;
-        },
+        queryFn: InventoryService.getReasonCodes
     });
-
-    // Filter locations: Origin can be anything (usually Dept), Destination usually STORE/WAREHOUSE
-    const originLocations = locations || [];
-    const destinationLocations = locations?.filter((l: any) => l.type !== 'DEPARTMENT') || [];
-
-    // Filter reason codes for returns
-    const returnReasons = reasonCodes?.filter((rc: any) =>
-        rc.allowedMovements.some((m: any) => m.movementType === 'RETURN' || m.movementType === 'RECEIVE')
-    ) || [];
 
     const form = useForm<ReturnFormValues>({
         resolver: zodResolver(returnSchema),
@@ -84,13 +69,10 @@ export default function ReturnStockPage() {
     });
 
     const mutation = useMutation({
-        mutationFn: async (values: ReturnFormValues) => {
-            const res = await api.post("/inventory/return", values);
-            return res.data;
-        },
+        mutationFn: InventoryService.return,
         onSuccess: () => {
             toast.success("Stock return recorded successfully!");
-            router.push("/items");
+            router.push("/inventory");
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || "Failed to record return");
@@ -105,17 +87,14 @@ export default function ReturnStockPage() {
         <div className="max-w-3xl mx-auto space-y-6">
             <PageHeader
                 title="Return Stock"
-                subtitle="Return unused or incorrect items from a department back to a store or warehouse."
+                subtitle="Return unused or incorrect items back to a store or warehouse."
             />
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Return Details</CardTitle>
-                            <CardDescription>
-                                Specify the item, locations, and the reason for the return.
-                            </CardDescription>
+                            <CardTitle className="text-sm">Return Details</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -124,18 +103,16 @@ export default function ReturnStockPage() {
                                     name="fromLocationId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Return From (Origin)</FormLabel>
+                                            <FormLabel className="text-xs">Return From</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Select origin location" />
+                                                        <SelectValue placeholder="Select origin" />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {originLocations.map((loc: any) => (
-                                                        <SelectItem key={loc.id} value={loc.id}>
-                                                            {loc.name} ({loc.code})
-                                                        </SelectItem>
+                                                    {locations?.map((loc: any) => (
+                                                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -149,7 +126,7 @@ export default function ReturnStockPage() {
                                     name="toLocationId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Return To (Destination)</FormLabel>
+                                            <FormLabel className="text-xs">Return To</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
@@ -157,10 +134,8 @@ export default function ReturnStockPage() {
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {destinationLocations.map((loc: any) => (
-                                                        <SelectItem key={loc.id} value={loc.id}>
-                                                            {loc.name} ({loc.code})
-                                                        </SelectItem>
+                                                    {locations?.map((loc: any) => (
+                                                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -175,18 +150,16 @@ export default function ReturnStockPage() {
                                 name="itemId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Item</FormLabel>
+                                        <FormLabel className="text-xs">Item</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Search or select item" />
+                                                    <SelectValue placeholder="Select item" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 {items?.map((item: any) => (
-                                                    <SelectItem key={item.id} value={item.id}>
-                                                        {item.name} ({item.code})
-                                                    </SelectItem>
+                                                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
@@ -201,7 +174,7 @@ export default function ReturnStockPage() {
                                     name="quantity"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Quantity</FormLabel>
+                                            <FormLabel className="text-xs">Quantity</FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
@@ -219,7 +192,7 @@ export default function ReturnStockPage() {
                                     name="reasonCodeId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Reason for Return</FormLabel>
+                                            <FormLabel className="text-xs">Reason</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger>
@@ -227,10 +200,8 @@ export default function ReturnStockPage() {
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {returnReasons.map((rc: any) => (
-                                                        <SelectItem key={rc.id} value={rc.id}>
-                                                            {rc.name}
-                                                        </SelectItem>
+                                                    {reasonCodes?.map((rc: any) => (
+                                                        <SelectItem key={rc.id} value={rc.id}>{rc.name}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
@@ -245,10 +216,9 @@ export default function ReturnStockPage() {
                                 name="comments"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Comments (Optional)</FormLabel>
+                                        <FormLabel className="text-xs">Comments (Optional)</FormLabel>
                                         <FormControl>
                                             <Textarea
-                                                placeholder="Provide any additional details or context for this return..."
                                                 className="resize-none h-20"
                                                 {...field}
                                             />
@@ -259,9 +229,7 @@ export default function ReturnStockPage() {
                             />
                         </CardContent>
                         <CardFooter className="flex justify-between border-t p-6 bg-muted/50">
-                            <Button variant="ghost" onClick={() => router.back()} type="button">
-                                Cancel
-                            </Button>
+                            <Button variant="ghost" onClick={() => router.back()} type="button">Cancel</Button>
                             <Button type="submit" disabled={mutation.isPending}>
                                 {mutation.isPending ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

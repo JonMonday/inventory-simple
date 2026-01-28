@@ -19,7 +19,7 @@ export class ReportsController {
             return this.exportCsv(res, 'stock-on-hand.csv', data.map(s => ({
                 itemCode: s.item.code,
                 itemName: s.item.name,
-                location: s.location.name,
+                location: s.storeLocation.name,
                 onHand: s.quantityOnHand,
                 reserved: s.reservedQuantity,
                 available: s.quantityOnHand - s.reservedQuantity,
@@ -46,7 +46,7 @@ export class ReportsController {
                 date: m.createdAtUtc.toISOString(),
                 itemCode: m.item.code,
                 itemName: m.item.name,
-                type: m.movementType,
+                type: m.movementType.label,
                 qty: m.quantity,
                 reason: m.reasonCode.name,
                 user: m.createdBy.fullName,

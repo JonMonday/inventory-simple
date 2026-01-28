@@ -1,43 +1,10 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -45,163 +12,94 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const bcrypt = __importStar(require("bcrypt"));
 let UsersService = class UsersService {
     prisma;
     constructor(prisma) {
         this.prisma = prisma;
     }
     async create(data) {
-        const existingUser = await this.prisma.user.findUnique({
-            where: { email: data.email },
-        });
-        if (existingUser) {
-            throw new common_1.BadRequestException('User already exists');
-        }
-        if (data.locationId) {
-            const loc = await this.prisma.location.findUnique({ where: { id: data.locationId } });
-            if (!loc || loc.type === 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Personal location cannot be of type DEPARTMENT');
-            }
-        }
-        if (data.departmentId) {
-            const dept = await this.prisma.location.findUnique({ where: { id: data.departmentId } });
-            if (!dept || dept.type !== 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Department ID must point to a location of type DEPARTMENT');
-            }
-        }
-        const finalPassword = data.password || 'ChangeMe!123';
-        const passwordHash = await bcrypt.hash(finalPassword, 10);
-        const user = await this.prisma.user.create({
+        return this.prisma.user.create({
             data: {
                 email: data.email,
                 fullName: data.fullName,
-                locationId: data.locationId,
                 departmentId: data.departmentId,
-                passwordHash,
-                mustChangePassword: true,
-                isActive: true,
-            },
-            select: {
-                id: true,
-                email: true,
-                fullName: true,
-                locationId: true,
-                departmentId: true,
-                mustChangePassword: true,
-                isActive: true,
-                createdAt: true,
+                unitId: data.unitId,
+                jobRoleId: data.jobRoleId,
+                branchId: data.branchId,
+                passwordHash: data.password || 'password123',
                 roles: {
-                    select: {
-                        role: { select: { name: true } }
-                    }
+                    create: data.roleIds?.map((id) => ({ roleId: id })) || []
                 }
-            },
+            }
         });
-        if (data.roleIds?.length) {
-            await this.prisma.userRole.createMany({
-                data: data.roleIds.map(roleId => ({
-                    userId: user.id,
-                    roleId,
-                })),
-            });
-        }
-        return user;
     }
     async findAll() {
         return this.prisma.user.findMany({
-            select: {
-                id: true,
-                email: true,
-                fullName: true,
-                locationId: true,
-                departmentId: true,
-                isActive: true,
-                createdAt: true,
-                location: { select: { name: true, type: true } },
-                department: { select: { name: true, type: true } },
-                roles: {
-                    select: {
-                        role: {
-                            select: {
-                                id: true,
-                                name: true,
-                            },
-                        },
-                    },
-                },
-            },
+            include: { department: true, unit: true, jobRole: true, branch: true }
         });
     }
     async findOne(id) {
-        return this.prisma.user.findUnique({
+        const user = await this.prisma.user.findUnique({
             where: { id },
-            select: {
-                id: true,
-                email: true,
-                fullName: true,
-                locationId: true,
-                departmentId: true,
-                isActive: true,
-                createdAt: true,
-                location: { select: { id: true, name: true, type: true } },
-                department: { select: { id: true, name: true, type: true } },
-                roles: {
-                    select: {
-                        role: {
-                            select: {
-                                id: true,
-                                name: true,
-                            },
-                        },
-                    },
-                },
-            },
+            include: {
+                department: true,
+                unit: true,
+                jobRole: true,
+                branch: true,
+                roles: { include: { role: true } }
+            }
         });
-    }
-    async update(id, data) {
-        const { roleIds, ...updateData } = data;
-        if (data.locationId) {
-            const loc = await this.prisma.location.findUnique({ where: { id: data.locationId } });
-            if (!loc || loc.type === 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Personal location cannot be of type DEPARTMENT');
-            }
-        }
-        if (data.departmentId) {
-            const dept = await this.prisma.location.findUnique({ where: { id: data.departmentId } });
-            if (!dept || dept.type !== 'DEPARTMENT') {
-                throw new common_1.BadRequestException('Department ID must point to a location of type DEPARTMENT');
-            }
-        }
-        const user = await this.prisma.user.update({
-            where: { id },
-            data: updateData,
-        });
-        if (roleIds !== undefined) {
-            await this.prisma.userRole.deleteMany({ where: { userId: id } });
-            if (roleIds.length) {
-                await this.prisma.userRole.createMany({
-                    data: roleIds.map(roleId => ({
-                        userId: id,
-                        roleId,
-                    })),
-                });
-            }
-        }
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
         return user;
     }
-    async findAllRoles() {
-        return this.prisma.role.findMany({
-            orderBy: { name: 'asc' },
+    async update(id, data) {
+        return this.prisma.user.update({
+            where: { id },
+            data: {
+                fullName: data.fullName,
+                departmentId: data.departmentId,
+                unitId: data.unitId,
+                jobRoleId: data.jobRoleId,
+                isActive: data.isActive
+            }
         });
     }
-    async assignRole(userId, roleId) {
-        return this.prisma.userRole.create({
-            data: {
-                userId,
-                roleId,
-            },
-        });
+    async getRoles() {
+        return this.prisma.role.findMany({ orderBy: { name: 'asc' } });
+    }
+    async getRole(id) {
+        const r = await this.prisma.role.findUnique({ where: { id }, include: { permissions: { include: { permission: true } } } });
+        if (!r)
+            throw new common_1.NotFoundException('Role not found');
+        return r;
+    }
+    async createRole(data) {
+        return this.prisma.role.create({ data });
+    }
+    async updateRole(id, data) {
+        return this.prisma.role.update({ where: { id }, data });
+    }
+    async getPermissions() {
+        return this.prisma.permission.findMany({ orderBy: { key: 'asc' } });
+    }
+    async getUserRoles(userId) {
+        return this.prisma.userRole.findMany({ where: { userId }, include: { role: true } });
+    }
+    async assignUserRole(userId, roleId) {
+        return this.prisma.userRole.create({ data: { userId, roleId } });
+    }
+    async removeUserRole(userId, roleId) {
+        return this.prisma.userRole.deleteMany({ where: { userId, roleId } });
+    }
+    async getRolePermissions(roleId) {
+        return this.prisma.rolePermission.findMany({ where: { roleId }, include: { permission: true } });
+    }
+    async addRolePermission(roleId, permissionId) {
+        return this.prisma.rolePermission.create({ data: { roleId, permissionId } });
+    }
+    async removeRolePermission(roleId, permissionId) {
+        return this.prisma.rolePermission.deleteMany({ where: { roleId, permissionId } });
     }
 };
 exports.UsersService = UsersService;

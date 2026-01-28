@@ -83,13 +83,16 @@ export default function RequestsPage() {
             accessorKey: "status",
             header: "Status",
             cell: ({ row }) => {
-                const val = row.getValue("status") as string;
-                let type: any = "INFO";
-                if (val === "APPROVED" || val === "FULFILLED") type = "SUCCESS";
-                if (val === "REJECTED") type = "DANGER";
-                if (val === "SUBMITTED" || val === "IN_REVIEW") type = "WARNING";
+                const status = row.original.status;
+                const code = status?.code || "DRAFT";
+                const label = status?.label || "Draft";
 
-                return <StatusBadge label={val} type={type} />;
+                let type: any = "INFO";
+                if (code === "CONFIRMED" || code === "FULFILLED") type = "SUCCESS";
+                if (code === "REJECTED" || code === "CANCELLED") type = "DANGER";
+                if (code === "IN_FLOW") type = "WARNING";
+
+                return <StatusBadge label={label} type={type} />;
             },
         },
         {
@@ -122,7 +125,7 @@ export default function RequestsPage() {
                                 )}
                             </PermissionGate>
 
-                            <PermissionGate permissions={[PERMISSIONS.REQUESTS_FULFILL]}>
+                            <PermissionGate permissions={[PERMISSIONS.REQUESTS_ISSUE]}>
                                 {request.status === "APPROVED" && (
                                     <DropdownMenuItem className="text-blue-500 focus:text-blue-500">
                                         <Truck className="mr-2 h-4 w-4" /> Fulfill

@@ -75,13 +75,13 @@ export class PermissionsGuard implements CanActivate {
         // From roles
         userWithPermissions.roles.forEach((ur) => {
             ur.role.permissions.forEach((rp) => {
-                userPermissions.add(`${rp.permission.resource}.${rp.permission.action}`);
+                userPermissions.add(rp.permission.key);
             });
         });
 
         // From direct grants
         userWithPermissions.permissions.forEach((up) => {
-            userPermissions.add(`${up.permission.resource}.${up.permission.action}`);
+            userPermissions.add(up.permission.key);
         });
 
         // Check if user has all required permissions
