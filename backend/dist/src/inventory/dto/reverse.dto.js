@@ -10,18 +10,31 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReverseDto = void 0;
+const openapi = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const swagger_1 = require("@nestjs/swagger");
 class ReverseDto {
     reasonCodeId;
     notes;
+    static _OPENAPI_METADATA_FACTORY() {
+        return { reasonCodeId: { required: true, type: () => String }, notes: { required: false, type: () => String } };
+    }
 }
 exports.ReverseDto = ReverseDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        example: '123e4567-e89b-12d3-a456-426614174020',
+        description: 'Reason code ID for the reversal',
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], ReverseDto.prototype, "reasonCodeId", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'Incorrect ledger entry - reversing',
+        description: 'Additional notes for the reversal',
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)

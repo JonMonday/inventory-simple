@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaClient, Prisma } from '@prisma/client';
 
-const adapter = new PrismaBetterSqlite3({ url: 'file:./dev.db' });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 async function testConcurrency() {
     console.log('🚀 Starting Concurrency Test (50 parallel requests)...');
@@ -15,7 +13,7 @@ async function testConcurrency() {
     }
 
     const promises = Array.from({ length: 50 }).map(async (_, i) => {
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
             const year = new Date().getFullYear();
             const sequence = await tx.systemSequence.upsert({
                 where: { name_year: { name: 'CONCURRENCY_TEST', year } },

@@ -5,23 +5,19 @@ export declare class LocationsService {
     findAll(): Promise<{
         id: string;
         createdAt: Date;
-        name: string;
         isActive: boolean;
+        name: string;
+        code: string;
         updatedAt: Date;
         branchId: string;
-        code: string;
-        type: string;
-        parentLocationId: string | null;
     }[]>;
     create(data: any): Promise<{
         id: string;
         createdAt: Date;
-        name: string;
         isActive: boolean;
+        name: string;
+        code: string;
         updatedAt: Date;
         branchId: string;
-        code: string;
-        type: string;
-        parentLocationId: string | null;
     }>;
 }

@@ -13,7 +13,7 @@ export class ItemsService {
         return this.prisma.item.findMany({
             where: {
                 ...(filters?.categoryId && { categoryId: filters.categoryId }),
-                ...(filters?.status && { status: filters.status }),
+                ...(filters?.status && { status: { code: filters.status } }),
                 ...(filters?.search && {
                     OR: [
                         { code: { contains: filters.search } },
@@ -24,7 +24,11 @@ export class ItemsService {
             },
             include: {
                 category: true,
-                stockSnapshots: true,
+                stockSnapshots: {
+                    include: {
+                        storeLocation: true,
+                    },
+                },
             },
             orderBy: {
                 code: 'asc',
@@ -39,7 +43,7 @@ export class ItemsService {
                 category: true,
                 stockSnapshots: {
                     include: {
-                        location: true,
+                        storeLocation: true,
                     },
                 },
             },
@@ -58,8 +62,8 @@ export class ItemsService {
         return this.prisma.item.create({
             data: {
                 ...data,
-                status: 'ACTIVE',
-            },
+                status: { connect: { code: 'ACTIVE' } },
+            } as any,
             include: {
                 category: true,
             },
@@ -80,18 +84,29 @@ export class ItemsService {
     ) {
         return this.prisma.item.update({
             where: { id },
-            data,
+            data: {
+                ...data,
+                ...(data.status && { status: { connect: { code: data.status } } })
+            } as any,
             include: {
                 category: true,
             },
         });
     }
 
-    async delete(id: string) {
-        // Soft delete by marking as discontinued
+    async deactivate(id: string) {
+        // Soft toggle by marking as DISCONTINUED
         return this.prisma.item.update({
             where: { id },
-            data: { status: 'DISCONTINUED' },
+            data: { status: { connect: { code: 'DISCONTINUED' } } },
+        });
+    }
+
+    async reactivate(id: string) {
+        // Soft toggle back to ACTIVE
+        return this.prisma.item.update({
+            where: { id },
+            data: { status: { connect: { code: 'ACTIVE' } } },
         });
     }
 
@@ -99,7 +114,7 @@ export class ItemsService {
         return this.prisma.stockSnapshot.findMany({
             where: { itemId },
             include: {
-                location: true,
+                storeLocation: true,
             },
         });
     }

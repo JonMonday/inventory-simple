@@ -5,12 +5,13 @@ export declare class StocktakeService {
     private prisma;
     private inventoryService;
     constructor(prisma: PrismaService, inventoryService: InventoryService);
+    private getStatusId;
     create(userId: string, dto: CreateStocktakeDto): Promise<{
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -31,8 +32,8 @@ export declare class StocktakeService {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -53,8 +54,8 @@ export declare class StocktakeService {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -65,8 +66,8 @@ export declare class StocktakeService {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -77,8 +78,8 @@ export declare class StocktakeService {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -86,29 +87,35 @@ export declare class StocktakeService {
         approvedByUserId: string | null;
     }>;
     findOne(id: string): Promise<({
-        location: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            isActive: boolean;
-            updatedAt: Date;
-            branchId: string;
-            code: string;
-            type: string;
-            parentLocationId: string | null;
-        };
         createdBy: {
             id: string;
             createdAt: Date;
+            isActive: boolean;
+            updatedAt: Date;
+            branchId: string;
+            departmentId: string;
+            unitId: string;
             email: string;
             passwordHash: string;
             fullName: string;
-            departmentId: string | null;
-            locationId: string | null;
+            jobRoleId: string;
+            primaryStoreLocationId: string | null;
             mustChangePassword: boolean;
+        };
+        status: {
+            label: string;
+            id: string;
+            code: string;
+            sortOrder: number;
+        };
+        storeLocation: {
+            id: string;
+            createdAt: Date;
             isActive: boolean;
+            name: string;
+            code: string;
             updatedAt: Date;
-            branchId: string | null;
+            branchId: string;
         };
         lines: ({
             item: {
@@ -116,11 +123,11 @@ export declare class StocktakeService {
                 description: string | null;
                 createdAt: Date;
                 name: string;
-                updatedAt: Date;
                 code: string;
+                updatedAt: Date;
                 categoryId: string;
                 unitOfMeasure: string;
-                status: string;
+                statusId: string;
                 reorderLevel: number | null;
                 reorderQuantity: number | null;
             };
@@ -137,8 +144,8 @@ export declare class StocktakeService {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;
@@ -146,36 +153,42 @@ export declare class StocktakeService {
         approvedByUserId: string | null;
     }) | null>;
     findAll(): Promise<({
-        location: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            isActive: boolean;
-            updatedAt: Date;
-            branchId: string;
-            code: string;
-            type: string;
-            parentLocationId: string | null;
-        };
         createdBy: {
             id: string;
             createdAt: Date;
+            isActive: boolean;
+            updatedAt: Date;
+            branchId: string;
+            departmentId: string;
+            unitId: string;
             email: string;
             passwordHash: string;
             fullName: string;
-            departmentId: string | null;
-            locationId: string | null;
+            jobRoleId: string;
+            primaryStoreLocationId: string | null;
             mustChangePassword: boolean;
+        };
+        status: {
+            label: string;
+            id: string;
+            code: string;
+            sortOrder: number;
+        };
+        storeLocation: {
+            id: string;
+            createdAt: Date;
             isActive: boolean;
+            name: string;
+            code: string;
             updatedAt: Date;
-            branchId: string | null;
+            branchId: string;
         };
     } & {
         id: string;
         createdAt: Date;
         name: string;
-        locationId: string;
-        status: string;
+        statusId: string;
+        storeLocationId: string;
         createdByUserId: string;
         completedAt: Date | null;
         startedAt: Date | null;

@@ -1,0 +1,459 @@
+{
+    "permissions": [
+        {
+            "key": "users.read",
+            "label": "Read Users",
+            "group": "RBAC"
+        },
+        {
+            "key": "users.create",
+            "label": "Create Users",
+            "group": "RBAC"
+        },
+        {
+            "key": "users.update",
+            "label": "Update Users",
+            "group": "RBAC"
+        },
+        {
+            "key": "users.delete",
+            "label": "Delete Users",
+            "group": "RBAC"
+        },
+        {
+            "key": "users.roles",
+            "label": "Manage User Roles",
+            "group": "RBAC"
+        },
+        {
+            "key": "roles.read",
+            "label": "Read Roles",
+            "group": "RBAC"
+        },
+        {
+            "key": "roles.create",
+            "label": "Create Roles",
+            "group": "RBAC"
+        },
+        {
+            "key": "roles.update",
+            "label": "Update Roles",
+            "group": "RBAC"
+        },
+        {
+            "key": "roles.delete",
+            "label": "Delete Roles",
+            "group": "RBAC"
+        },
+        {
+            "key": "roles.manage",
+            "label": "Manage Role Permissions",
+            "group": "RBAC"
+        },
+        {
+            "key": "permissions.read",
+            "label": "Read Permissions",
+            "group": "RBAC"
+        },
+        {
+            "key": "permissions.manage",
+            "label": "Manage Permissions",
+            "group": "RBAC"
+        },
+        {
+            "key": "branches.read",
+            "label": "Read Branches",
+            "group": "Organization"
+        },
+        {
+            "key": "branches.create",
+            "label": "Create Branches",
+            "group": "Organization"
+        },
+        {
+            "key": "branches.update",
+            "label": "Update Branches",
+            "group": "Organization"
+        },
+        {
+            "key": "branches.activate",
+            "label": "Activate Branches",
+            "group": "Organization"
+        },
+        {
+            "key": "branches.deactivate",
+            "label": "Deactivate Branches",
+            "group": "Organization"
+        },
+        {
+            "key": "departments.read",
+            "label": "Read Departments",
+            "group": "Organization"
+        },
+        {
+            "key": "departments.create",
+            "label": "Create Departments",
+            "group": "Organization"
+        },
+        {
+            "key": "departments.update",
+            "label": "Update Departments",
+            "group": "Organization"
+        },
+        {
+            "key": "departments.activate",
+            "label": "Activate Departments",
+            "group": "Organization"
+        },
+        {
+            "key": "departments.deactivate",
+            "label": "Deactivate Departments",
+            "group": "Organization"
+        },
+        {
+            "key": "units.read",
+            "label": "Read Units",
+            "group": "Organization"
+        },
+        {
+            "key": "units.create",
+            "label": "Create Units",
+            "group": "Organization"
+        },
+        {
+            "key": "units.update",
+            "label": "Update Units",
+            "group": "Organization"
+        },
+        {
+            "key": "units.activate",
+            "label": "Activate Units",
+            "group": "Organization"
+        },
+        {
+            "key": "units.deactivate",
+            "label": "Deactivate Units",
+            "group": "Organization"
+        },
+        {
+            "key": "jobRoles.read",
+            "label": "Read Job Roles",
+            "group": "Organization"
+        },
+        {
+            "key": "jobRoles.create",
+            "label": "Create Job Roles",
+            "group": "Organization"
+        },
+        {
+            "key": "jobRoles.update",
+            "label": "Update Job Roles",
+            "group": "Organization"
+        },
+        {
+            "key": "jobRoles.activate",
+            "label": "Activate Job Roles",
+            "group": "Organization"
+        },
+        {
+            "key": "jobRoles.deactivate",
+            "label": "Deactivate Job Roles",
+            "group": "Organization"
+        },
+        {
+            "key": "storeLocations.read",
+            "label": "Read Store Locations",
+            "group": "Organization"
+        },
+        {
+            "key": "storeLocations.create",
+            "label": "Create Store Locations",
+            "group": "Organization"
+        },
+        {
+            "key": "storeLocations.update",
+            "label": "Update Store Locations",
+            "group": "Organization"
+        },
+        {
+            "key": "storeLocations.activate",
+            "label": "Activate Store Locations",
+            "group": "Organization"
+        },
+        {
+            "key": "storeLocations.deactivate",
+            "label": "Deactivate Store Locations",
+            "group": "Organization"
+        },
+        {
+            "key": "items.read",
+            "label": "Read Items",
+            "group": "Catalog"
+        },
+        {
+            "key": "items.create",
+            "label": "Create Items",
+            "group": "Catalog"
+        },
+        {
+            "key": "items.update",
+            "label": "Update Items",
+            "group": "Catalog"
+        },
+        {
+            "key": "items.activate",
+            "label": "Activate Items",
+            "group": "Catalog"
+        },
+        {
+            "key": "items.deactivate",
+            "label": "Deactivate Items",
+            "group": "Catalog"
+        },
+        {
+            "key": "categories.read",
+            "label": "Read Categories",
+            "group": "Catalog"
+        },
+        {
+            "key": "categories.create",
+            "label": "Create Categories",
+            "group": "Catalog"
+        },
+        {
+            "key": "categories.update",
+            "label": "Update Categories",
+            "group": "Catalog"
+        },
+        {
+            "key": "categories.activate",
+            "label": "Activate Categories",
+            "group": "Catalog"
+        },
+        {
+            "key": "categories.deactivate",
+            "label": "Deactivate Categories",
+            "group": "Catalog"
+        },
+        {
+            "key": "reasonCodes.read",
+            "label": "Read Reason Codes",
+            "group": "Catalog"
+        },
+        {
+            "key": "reasonCodes.create",
+            "label": "Create Reason Codes",
+            "group": "Catalog"
+        },
+        {
+            "key": "reasonCodes.update",
+            "label": "Update Reason Codes",
+            "group": "Catalog"
+        },
+        {
+            "key": "reasonCodes.activate",
+            "label": "Activate Reason Codes",
+            "group": "Catalog"
+        },
+        {
+            "key": "reasonCodes.deactivate",
+            "label": "Deactivate Reason Codes",
+            "group": "Catalog"
+        },
+        {
+            "key": "requests.read",
+            "label": "Read Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.create",
+            "label": "Create Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.update",
+            "label": "Update Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.delete",
+            "label": "Delete Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.submit",
+            "label": "Submit Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.approve",
+            "label": "Approve Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.reject",
+            "label": "Reject Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.cancel",
+            "label": "Cancel Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.reassign",
+            "label": "Reassign Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.confirm",
+            "label": "Confirm Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.clone",
+            "label": "Clone Requests",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.reserve",
+            "label": "Reserve Stock for Request",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.issue",
+            "label": "Issue Stock for Request",
+            "group": "Requests"
+        },
+        {
+            "key": "requests.lines.manage",
+            "label": "Manage Request Lines",
+            "group": "Requests"
+        },
+        {
+            "key": "stock.read",
+            "label": "Read Stock Levels",
+            "group": "Inventory"
+        },
+        {
+            "key": "inventory.receive",
+            "label": "Receive Stock",
+            "group": "Inventory"
+        },
+        {
+            "key": "inventory.return",
+            "label": "Return Stock",
+            "group": "Inventory"
+        },
+        {
+            "key": "inventory.transfer",
+            "label": "Transfer Stock",
+            "group": "Inventory"
+        },
+        {
+            "key": "inventory.adjust",
+            "label": "Adjust Stock",
+            "group": "Inventory"
+        },
+        {
+            "key": "ledger.read",
+            "label": "Read Ledger",
+            "group": "Inventory"
+        },
+        {
+            "key": "ledger.reverse",
+            "label": "Reverse Ledger Entry",
+            "group": "Inventory"
+        },
+        {
+            "key": "stocktake.read",
+            "label": "Read Stocktakes",
+            "group": "Stocktake"
+        },
+        {
+            "key": "stocktake.create",
+            "label": "Create Stocktakes",
+            "group": "Stocktake"
+        },
+        {
+            "key": "stocktake.startCount",
+            "label": "Start Stocktake Count",
+            "group": "Stocktake"
+        },
+        {
+            "key": "stocktake.submitCount",
+            "label": "Submit Stocktake Count",
+            "group": "Stocktake"
+        },
+        {
+            "key": "stocktake.approve",
+            "label": "Approve Stocktake",
+            "group": "Stocktake"
+        },
+        {
+            "key": "stocktake.apply",
+            "label": "Apply Stocktake",
+            "group": "Stocktake"
+        },
+        {
+            "key": "reports.view",
+            "label": "View Reports",
+            "group": "Reports"
+        },
+        {
+            "key": "lookups.read",
+            "label": "Read Lookups",
+            "group": "Admin"
+        },
+        {
+            "key": "lookups.manage",
+            "label": "Manage Lookups",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.read",
+            "label": "Read Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.create",
+            "label": "Create Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.update",
+            "label": "Update Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.activate",
+            "label": "Activate Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.deactivate",
+            "label": "Deactivate Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "templates.manage",
+            "label": "Manage Templates",
+            "group": "Admin"
+        },
+        {
+            "key": "comments.read",
+            "label": "Read Comments",
+            "group": "Social"
+        },
+        {
+            "key": "comments.create",
+            "label": "Create Comments",
+            "group": "Social"
+        },
+        {
+            "key": "reservations.read",
+            "label": "Read Reservations",
+            "group": "Inventory"
+        }
+    ]
+}

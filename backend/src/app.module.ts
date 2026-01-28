@@ -6,10 +6,13 @@ import { ItemsModule } from './items/items.module';
 import { UsersModule } from './users/users.module';
 import { RequestsModule } from './requests/requests.module';
 import { InventoryModule } from './inventory/inventory.module';
-import { StocktakeModule } from './stocktake/stocktake.module';
-import { ReportsModule } from './reports/reports.module';
+// import { StocktakeModule } from './stocktake/stocktake.module';
+// import { ReportsModule } from './reports/reports.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { LocationsModule } from './locations/locations.module';
+import { OrganizationModule } from './organization/organization.module';
+import { TemplatesModule } from './templates/templates.module';
+import { MetadataModule } from './metadata/metadata.module';
+import { CommonModule } from './common/common.module';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 
 @Module({
@@ -23,10 +26,14 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
     UsersModule,
     RequestsModule,
     InventoryModule,
-    StocktakeModule,
-    ReportsModule,
-    LocationsModule,
+    // StocktakeModule,
+    // ReportsModule,
+    OrganizationModule,
+    TemplatesModule,
+    MetadataModule,
+    CommonModule,
   ],
   providers: [],
 })
 export class AppModule { }
+// Logic: Force Rebuild

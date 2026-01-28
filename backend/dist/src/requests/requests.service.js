@@ -12,33 +12,41 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequestsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
-const reservation_service_1 = require("../inventory/reservation.service");
-const inventory_service_1 = require("../inventory/inventory.service");
-const request_dto_1 = require("./dto/request.dto");
 let RequestsService = class RequestsService {
     prisma;
-    reservationService;
-    inventoryService;
-    constructor(prisma, reservationService, inventoryService) {
+    constructor(prisma) {
         this.prisma = prisma;
-        this.reservationService = reservationService;
-        this.inventoryService = inventoryService;
     }
     async create(userId, dto) {
         return this.prisma.$transaction(async (tx) => {
+            const statusDraft = await tx.requestStatus.findUnique({ where: { code: 'DRAFT' } });
+            if (!statusDraft) {
+                console.error('CRITICAL: DRAFT status not found in system. Please run seed.');
+                throw new common_1.NotFoundException('DRAFT status not found in system. Please run npm run db:seed in backend.');
+            }
+            const user = await tx.user.findUnique({ where: { id: userId } });
+            if (!user)
+                throw new common_1.NotFoundException('User not found');
+            if (!user.departmentId || !user.unitId) {
+            }
             const year = new Date().getFullYear();
             const sequence = await tx.systemSequence.upsert({
                 where: { name_year: { name: 'REQUEST', year } },
                 update: { nextValue: { increment: 1 } },
                 create: { name: 'REQUEST', year, nextValue: 1001 },
             });
-            const paddedValue = sequence.nextValue.toString().padStart(4, '0');
-            const readableId = `REQ-${year}-${paddedValue}`;
+            const readableId = `REQ-${year}-${sequence.nextValue.toString().padStart(4, '0')}`;
+            const eventTypeCreated = await tx.requestEventType.findUnique({ where: { code: 'CREATED' } });
+            if (!eventTypeCreated)
+                throw new common_1.NotFoundException('CREATED event type not found');
             const request = await tx.request.create({
                 data: {
                     readableId,
                     requesterUserId: userId,
-                    status: request_dto_1.RequestStatus.DRAFT,
+                    statusId: statusDraft.id,
+                    departmentId: user.departmentId,
+                    unitId: user.unitId,
+                    templateId: dto.templateId,
                     lines: {
                         create: dto.lines.map((line) => ({
                             itemId: line.itemId,
@@ -47,403 +55,284 @@ let RequestsService = class RequestsService {
                     },
                     events: {
                         create: {
-                            userId,
-                            type: 'CREATED',
-                            description: `Request ${readableId} created as DRAFT.`,
+                            eventTypeId: eventTypeCreated.id,
+                            actedByUserId: userId,
+                            fromStatusId: null,
+                            toStatusId: statusDraft.id,
+                            metadata: `Request ${readableId} created.`,
                         },
                     },
                 },
-                include: {
-                    lines: true,
-                },
+                include: { lines: true, status: true },
             });
+            const roleRequester = await tx.participantRoleType.findUnique({ where: { code: 'REQUESTER' } });
+            if (roleRequester) {
+                await tx.requestParticipant.upsert({
+                    where: { requestId_userId: { requestId: request.id, userId } },
+                    create: { requestId: request.id, userId, participantRoleTypeId: roleRequester.id },
+                    update: { lastActionAt: new Date() }
+                });
+            }
             return request;
         });
     }
-    async submit(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({
-                where: { id },
-                include: { requester: true, lines: true },
+    async findAll(userId, role) {
+        if (role === 'ADMIN') {
+            return this.prisma.request.findMany({
+                include: { requester: true, status: true, department: true },
+                orderBy: { createdAt: 'desc' }
             });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            if (request.status !== request_dto_1.RequestStatus.DRAFT) {
-                throw new common_1.BadRequestException('Only DRAFT requests can be submitted');
-            }
-            if (request.requesterUserId !== userId) {
-                throw new common_1.ForbiddenException('Only the requester can submit the request');
-            }
-            const requester = request.requester;
-            if (!requester.departmentId || !requester.locationId) {
-                throw new common_1.BadRequestException('User must have a department and location assigned before submitting a request');
-            }
-            const updatedRequest = await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.SUBMITTED,
-                    departmentId: requester.departmentId,
-                    locationId: requester.locationId,
-                    events: {
-                        create: {
-                            userId,
-                            type: 'SUBMITTED',
-                            description: 'Request submitted for review.',
-                        },
-                    },
-                },
-            });
-            return updatedRequest;
+        }
+        return this.prisma.request.findMany({
+            where: { requesterUserId: userId },
+            include: { requester: true, status: true, department: true },
+            orderBy: { createdAt: 'desc' }
         });
     }
     async findOne(id) {
         const request = await this.prisma.request.findUnique({
             where: { id },
             include: {
-                requester: { select: { fullName: true, email: true } },
+                requester: {
+                    select: {
+                        fullName: true,
+                        email: true,
+                        department: { select: { name: true } }
+                    }
+                },
+                department: true,
+                unit: true,
+                status: true,
+                currentStageType: true,
                 lines: { include: { item: true } },
-                events: { include: { user: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' } },
-                assignments: { include: { user: { select: { fullName: true } } } },
+                assignments: {
+                    where: { status: 'ACTIVE' },
+                    include: { assignedTo: { select: { fullName: true, email: true } }, stageType: true }
+                },
+                events: {
+                    include: {
+                        actedBy: { select: { fullName: true } },
+                        eventType: true,
+                        comment: true
+                    },
+                    orderBy: { createdAt: 'desc' }
+                },
+                comments: {
+                    include: { author: { select: { fullName: true } }, commentType: true },
+                    orderBy: { createdAt: 'asc' }
+                }
             },
         });
         if (!request)
             throw new common_1.NotFoundException('Request not found');
         return request;
     }
-    async findAll(userId, role) {
-        if (role === 'ADMIN') {
-            return this.prisma.request.findMany({ include: { requester: true } });
-        }
-        return this.prisma.request.findMany({
-            where: { requesterUserId: userId },
-            include: { requester: true },
+    async update(id, dto) {
+        return this.prisma.request.update({
+            where: { id },
+            data: {
+                issueFromStoreId: dto.issueFromStoreId,
+            },
+            include: { lines: true, status: true }
         });
     }
-    async startReview(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({ where: { id } });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            if (request.status !== request_dto_1.RequestStatus.SUBMITTED) {
-                throw new common_1.BadRequestException('Can only start review for SUBMITTED requests');
+    async clone(id, userId) {
+        const source = await this.findOne(id);
+        const dto = {
+            templateId: source.templateId || undefined,
+            lines: source.lines.map(l => ({ itemId: l.itemId, quantity: l.quantity }))
+        };
+        return this.create(userId, dto);
+    }
+    async addLine(requestId, dto) {
+        return this.prisma.requestLine.create({
+            data: {
+                requestId,
+                itemId: dto.itemId,
+                quantity: dto.quantity
             }
-            const updated = await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.IN_REVIEW,
-                    assignments: {
-                        create: {
-                            userId,
-                            level: 'REVIEW',
-                            isActive: true,
-                        },
-                    },
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Review started.',
-                        },
-                    },
-                },
-            });
-            return updated;
         });
     }
-    async refactor(id, userId, dto) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({
-                where: { id },
-                include: { lines: true },
-            });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            if (request.status !== request_dto_1.RequestStatus.IN_REVIEW) {
-                throw new common_1.BadRequestException('Can only refactor during IN_REVIEW stage');
-            }
-            const oldLinesJson = JSON.stringify(request.lines);
-            await tx.requestLine.deleteMany({ where: { requestId: id } });
-            const newLines = await tx.request.update({
-                where: { id },
-                data: {
-                    lines: {
-                        create: dto.lines.map((l) => ({
-                            itemId: l.itemId,
-                            quantity: l.quantity,
-                        }))
-                    },
-                    events: {
-                        create: {
-                            userId,
-                            type: 'REFACTORED',
-                            description: dto.reason || 'Lines updated by reviewer.',
-                            dataJson: JSON.stringify({ old: request.lines, new: dto.lines }),
-                        }
+    async updateLine(lineId, quantity) {
+        return this.prisma.requestLine.update({
+            where: { id: lineId },
+            data: { quantity }
+        });
+    }
+    async removeLine(lineId) {
+        return this.prisma.requestLine.delete({
+            where: { id: lineId }
+        });
+    }
+    async getLines(requestId) {
+        return this.prisma.requestLine.findMany({
+            where: { requestId },
+            include: { item: true }
+        });
+    }
+    async getEvents(id) {
+        return this.prisma.requestEvent.findMany({
+            where: { requestId: id },
+            include: { actedBy: { select: { fullName: true } }, eventType: true },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async getAssignments(requestId, all = false) {
+        return this.prisma.requestAssignment.findMany({
+            where: {
+                requestId,
+                ...(all ? {} : { status: 'ACTIVE' })
+            },
+            include: {
+                assignedTo: {
+                    select: {
+                        fullName: true,
+                        email: true,
+                        department: { select: { name: true } },
+                        unit: { select: { name: true } }
                     }
                 },
-                include: { lines: true }
-            });
-            return newLines;
+                stageType: true
+            },
+            orderBy: { assignedAt: 'desc' }
         });
     }
-    async sendToApproval(id, userId, issueFromLocationId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            let locationId = request.issueFromLocationId;
-            if (issueFromLocationId) {
-                locationId = issueFromLocationId;
-                await tx.request.update({ where: { id }, data: { issueFromLocationId } });
+    async resolveEligibleReviewers(requestId) {
+        const request = await this.prisma.request.findUnique({
+            where: { id: requestId },
+            include: {
+                template: { include: { workflowSteps: { include: { stageType: true } } } },
+                currentStageType: true
             }
-            if (!locationId) {
-                throw new common_1.BadRequestException('Cannot send to approval: Issue From Location must be set (or provided)');
-            }
-            for (const line of request.lines) {
-                await this.reservationService.reserve(tx, line.id, line.itemId, locationId, line.quantity);
-            }
-            await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.IN_APPROVAL,
-                    assignments: {
-                        updateMany: { where: { requestId: id, isActive: true }, data: { isActive: false, completedAt: new Date() } }
-                    },
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Sent to approval. Stock reserved.',
-                        },
-                    },
-                },
-            });
         });
-    }
-    async reassign(id, actorId, isAdmin, dto) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({
-                where: { id },
-                include: { assignments: { where: { isActive: true } }, lines: true }
-            });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            if (request.requesterUserId !== actorId && !isAdmin) {
-                throw new common_1.ForbiddenException('Only the requester or an administrator can reassign a request');
-            }
-            if (dto.newLocationId && dto.newLocationId !== request.issueFromLocationId) {
-                for (const line of request.lines) {
-                    await this.reservationService.release(tx, line.id);
-                }
-                await tx.request.update({
-                    where: { id },
-                    data: { issueFromLocationId: dto.newLocationId }
-                });
-                if (request.status === request_dto_1.RequestStatus.IN_APPROVAL || request.status === request_dto_1.RequestStatus.APPROVED) {
-                    for (const line of request.lines) {
-                        await this.reservationService.reserve(tx, line.id, line.itemId, dto.newLocationId, line.quantity);
-                    }
-                }
-            }
-            const activeAssignment = request.assignments[0];
-            if (activeAssignment) {
-                await tx.requestAssignment.update({
-                    where: { id: activeAssignment.id },
-                    data: { isActive: false, completedAt: new Date() }
-                });
-            }
-            await tx.requestAssignment.create({
-                data: {
-                    requestId: id,
-                    userId: dto.newUserId,
-                    level: activeAssignment?.level || 'REVIEW',
-                    isActive: true
-                }
-            });
-            await tx.requestEvent.create({
-                data: {
-                    requestId: id,
-                    userId: actorId,
-                    type: 'REASSIGNMENT',
-                    description: `Reassigned to ${dto.newUserId}. Reason: ${dto.reason || 'None'}`,
-                }
-            });
-            return { message: 'Reassigned successfully' };
-        });
-    }
-    async revertToReview(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            for (const line of request.lines) {
-                await this.reservationService.release(tx, line.id);
-            }
-            await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.IN_REVIEW,
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Reverted to review. Reservations released.',
-                        }
-                    }
-                }
-            });
-        });
-    }
-    async cancel(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({ where: { id }, include: { lines: true } });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            for (const line of request.lines) {
-                await this.reservationService.release(tx, line.id);
-            }
-            await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.CANCELLED,
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Request cancelled. Reservations released.',
-                        }
-                    }
-                }
-            });
-        });
-    }
-    async approve(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.APPROVED,
-                    assignments: {
-                        updateMany: { where: { requestId: id, isActive: true }, data: { isActive: false, completedAt: new Date() } }
-                    },
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Request approved.',
-                        }
-                    }
-                }
-            });
-        });
-    }
-    async reject(id, userId) {
-        return this.prisma.$transaction(async (tx) => {
-            const request = await tx.request.findUnique({
-                where: { id },
-                include: { lines: true }
-            });
-            if (!request)
-                throw new common_1.NotFoundException('Request not found');
-            for (const line of request.lines) {
-                await this.reservationService.release(tx, line.id);
-            }
-            await tx.request.update({
-                where: { id },
-                data: {
-                    status: request_dto_1.RequestStatus.REJECTED,
-                    assignments: {
-                        updateMany: { where: { requestId: id, isActive: true }, data: { isActive: false, completedAt: new Date() } }
-                    },
-                    events: {
-                        create: {
-                            userId,
-                            type: 'STATUS_CHANGE',
-                            description: 'Request rejected. Reservations released.',
-                        }
-                    }
-                }
-            });
-        });
-    }
-    async fulfill(id, userId) {
-        try {
-            return await this.prisma.$transaction(async (tx) => {
-                const request = await tx.request.findUnique({
-                    where: { id },
-                    include: { lines: true }
-                });
-                if (!request)
-                    throw new common_1.NotFoundException('Request not found');
-                if (request.status !== request_dto_1.RequestStatus.APPROVED) {
-                    throw new common_1.BadRequestException('Only APPROVED requests can be fulfilled');
-                }
-                if (!request.issueFromLocationId) {
-                    throw new common_1.BadRequestException('System Logic Error: Request is approved but has no issue location');
-                }
-                for (const line of request.lines) {
-                    await this.reservationService.commit(tx, line.id);
-                    const reasonCode = await tx.reasonCode.findFirst({
-                        where: {
-                            isActive: true,
-                            allowedMovements: { some: { movementType: 'ISSUE' } }
-                        }
-                    });
-                    if (!reasonCode)
-                        throw new common_1.BadRequestException('No active ISSUE reason code found for fulfillment');
-                    await this.inventoryService.recordMovement(tx, {
-                        itemId: line.itemId,
-                        locationId: request.issueFromLocationId,
-                        relatedLocationId: request.departmentId ?? undefined,
-                        movementType: 'ISSUE',
-                        quantity: line.quantity,
-                        reasonCodeId: reasonCode.id,
-                        referenceNo: request.readableId,
-                        userId,
-                        comments: 'Request Fulfilled'
-                    });
-                }
-                await tx.request.update({
-                    where: { id },
-                    data: {
-                        status: request_dto_1.RequestStatus.FULFILLED,
-                        events: {
-                            create: {
-                                userId,
-                                type: 'FULFILLED',
-                                description: 'Request fulfilled and stock issued.',
-                            }
-                        }
-                    }
-                });
-                return { success: true };
-            });
+        if (!request || !request.currentStageTypeId) {
+            throw new common_1.BadRequestException('Request is not in an active stage');
         }
-        catch (error) {
-            if (!(error instanceof common_1.NotFoundException)) {
-                await this.prisma.request.update({
-                    where: { id },
-                    data: {
-                        status: request_dto_1.RequestStatus.IN_REVIEW,
-                        events: {
-                            create: {
-                                userId,
-                                type: 'SYSTEM_ERROR',
-                                description: `Fulfillment failed: ${error.message}. Request reverted to IN_REVIEW.`,
-                            }
-                        }
-                    }
-                });
-            }
-            throw error;
+        const step = request.template?.workflowSteps.find(s => s.stageTypeId === request.currentStageTypeId);
+        if (!step) {
+            throw new common_1.BadRequestException('Current stage is not defined in the template workflow');
         }
+        const userQuery = {
+            isActive: true,
+            roles: {
+                some: {
+                    role: { code: step.roleKey }
+                }
+            }
+        };
+        if (step.branchId)
+            userQuery.branchId = step.branchId;
+        if (step.includeRequesterDepartment) {
+            userQuery.departmentId = request.departmentId;
+        }
+        else if (step.departmentId) {
+            userQuery.departmentId = step.departmentId;
+        }
+        if (step.unitId)
+            userQuery.unitId = step.unitId;
+        if (step.jobRoleId)
+            userQuery.jobRoleId = step.jobRoleId;
+        const users = await this.prisma.user.findMany({
+            where: userQuery,
+            include: {
+                department: { select: { name: true } },
+                unit: { select: { name: true } },
+                branch: { select: { name: true } },
+                roles: { include: { role: true } }
+            }
+        });
+        return {
+            stageId: step.stageTypeId,
+            stageLabel: step.stageType.label,
+            assignmentMode: step.assignmentMode,
+            roleKey: step.roleKey,
+            minApprovers: step.minApprovers,
+            maxApprovers: step.maxApprovers,
+            eligibleUsers: users.map(u => ({
+                id: u.id,
+                fullName: u.fullName,
+                email: u.email,
+                departmentName: u.department.name,
+                unitName: u.unit.name,
+                branchName: u.branch.name,
+                roleCodes: u.roles.map(r => r.role.code)
+            })),
+            constraints: {
+                requireAll: step.requireAll,
+                allowRequesterSelect: step.allowRequesterSelect
+            }
+        };
+    }
+    async createAssignments(requestId, actorId, stageId, userIds) {
+        const eligibleData = await this.resolveEligibleReviewers(requestId);
+        if (eligibleData.stageId !== stageId) {
+            throw new common_1.BadRequestException('Assignments can only be created for the current active stage');
+        }
+        if (eligibleData.assignmentMode !== 'MANUAL_FROM_POOL' && !eligibleData.constraints.allowRequesterSelect) {
+        }
+        const invalidIds = userIds.filter(id => !eligibleData.eligibleUsers.some(u => u.id === id));
+        if (invalidIds.length > 0) {
+            throw new common_1.BadRequestException(`Following users are ineligible for this stage: ${invalidIds.join(', ')}`);
+        }
+        if (userIds.length > eligibleData.maxApprovers) {
+            throw new common_1.BadRequestException(`Maximum ${eligibleData.maxApprovers} approvers can be assigned`);
+        }
+        return this.prisma.$transaction(async (tx) => {
+            await tx.requestAssignment.updateMany({
+                where: { requestId, stageTypeId: stageId, status: 'ACTIVE' },
+                data: { status: 'CANCELLED', completedAt: new Date() }
+            });
+            const created = await Promise.all(userIds.map(uid => tx.requestAssignment.create({
+                data: {
+                    requestId,
+                    assignedToId: uid,
+                    assignedById: actorId,
+                    stageTypeId: stageId,
+                    assignmentType: 'USER',
+                    status: 'ACTIVE'
+                }
+            })));
+            return created;
+        });
+    }
+    async getParticipants(id) {
+        const participants = await this.prisma.requestParticipant.findMany({
+            where: { requestId: id },
+            include: { user: { select: { fullName: true, email: true } }, participantRoleType: true }
+        });
+        return participants.map(p => ({
+            ...p,
+            roleType: p.participantRoleType
+        }));
+    }
+    async getReservations(id) {
+        return this.prisma.reservation.findMany({
+            where: { requestId: id },
+            include: { requestLine: { include: { item: true } } }
+        });
+    }
+    async getComments(id) {
+        return this.prisma.requestComment.findMany({
+            where: { requestId: id },
+            include: { author: { select: { fullName: true } }, commentType: true },
+            orderBy: { createdAt: 'asc' }
+        });
+    }
+    async addComment(id, userId, body) {
+        const commentType = await this.prisma.commentType.findUnique({ where: { code: 'GENERAL' } });
+        return this.prisma.requestComment.create({
+            data: {
+                requestId: id,
+                authorId: userId,
+                commentTypeId: commentType.id,
+                body
+            }
+        });
     }
 };
 exports.RequestsService = RequestsService;
 exports.RequestsService = RequestsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
-        reservation_service_1.ReservationService,
-        inventory_service_1.InventoryService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], RequestsService);
 //# sourceMappingURL=requests.service.js.map

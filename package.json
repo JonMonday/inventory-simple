@@ -1,0 +1,8 @@
+{
+    "name": "inventory-simple-root",
+    "private": true,
+    "scripts": {
+        "generate:permissions": "node scripts/generate-permissions.mjs",
+        "prebuild": "npm run generate:permissions"
+    }
+}

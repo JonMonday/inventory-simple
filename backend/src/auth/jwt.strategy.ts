@@ -23,15 +23,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException();
         }
 
-        const roleNames = user.roles.map((ur) => ur.role.name);
+        const roleCodes = user.roles.map((ur) => ur.role.code);
         return {
             id: user.id,
             email: user.email,
             fullName: user.fullName,
-            roles: roleNames,
+            roles: roleCodes,
             branchId: user.branchId,
-            locationId: user.locationId,
-            departmentId: user.departmentId
+            primaryStoreLocationId: user.primaryStoreLocationId,
+            departmentId: user.departmentId,
+            unitId: user.unitId,
+            jobRoleId: user.jobRoleId
         };
     }
 }

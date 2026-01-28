@@ -25,13 +25,95 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
+## Neon Postgres Setup (Vercel + Prisma)
 
-```bash
-$ npm install
+This project uses **Neon Postgres** as the database provider, optimized for serverless deployment on **Vercel**.
+
+### Environment Variables
+
+Create a `.env` file in the `backend` directory with the following variables:
+
+```env
+# Neon Postgres Connection URLs
+DATABASE_URL="postgresql://user:password@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=require"
+DIRECT_URL="postgresql://user:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require"
+
+# JWT Secret
+JWT_SECRET="your-secret-key-here"
 ```
 
-## Compile and run the project
+**Important Notes:**
+- `DATABASE_URL`: Use the **pooled connection URL** from Neon (contains `-pooler` in the hostname). This is used for application queries and is optimized for serverless environments.
+- `DIRECT_URL`: Use the **direct connection URL** from Neon (without `-pooler`). This is used for migrations and schema operations.
+- Both URLs can be found in your Neon project dashboard under "Connection Details".
+
+### Project Setup
+
+```bash
+# Install dependencies
+$ npm install
+
+# Generate Prisma Client
+$ npm run db:generate
+
+# Run migrations (development - creates migration files)
+$ npm run db:migrate
+
+# Run migrations (production - applies existing migrations)
+$ npm run db:migrate:deploy
+
+# Seed the database with sample data
+$ npm run db:seed
+
+# Complete setup (generate + migrate + seed)
+$ npm run db:setup
+```
+
+### Database Management Commands
+
+```bash
+# Generate Prisma Client after schema changes
+$ npm run db:generate
+
+# Create and apply a new migration (development)
+$ npm run db:migrate
+
+# Apply existing migrations (production/CI)
+$ npm run db:migrate:deploy
+
+# Seed the database
+$ npm run db:seed
+
+# Reset database (WARNING: deletes all data)
+$ npm run db:reset
+
+# Open Prisma Studio (database GUI)
+$ npm run db:studio
+```
+
+### Seed Data
+
+The seed script (`prisma/seed.ts`) creates realistic inventory data including:
+- 2 Branches (Banjul, Serekunda)
+- 8 Locations (warehouses, departments, sub-locations)
+- 3 Categories with parent-child relationships
+- 15 Items across different categories
+- 3 Roles (Admin, InventoryManager, Requester) with 20 Permissions
+- 6 Users with hashed passwords
+- 5 Reason Codes for inventory movements
+- Stock snapshots, ledger entries, requests, stocktakes, and audit logs
+
+**Login Credentials (all users):**
+- Password: `password123`
+- Users:
+  - `admin@inventory.com` (Admin)
+  - `manager.banjul@inventory.com` (Inventory Manager)
+  - `manager.serekunda@inventory.com` (Inventory Manager)
+  - `requester1@inventory.com` (Requester)
+  - `requester2@inventory.com` (Requester)
+  - `requester3@inventory.com` (Requester)
+
+## Compile and Run the Project
 
 ```bash
 # development
@@ -44,7 +126,7 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
-## Run tests
+## Run Tests
 
 ```bash
 # unit tests
@@ -57,18 +139,44 @@ $ npm run test:e2e
 $ npm run test:cov
 ```
 
-## Deployment
+## Vercel Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### Prerequisites
+1. Create a Neon Postgres database at [neon.tech](https://neon.tech)
+2. Get both the **pooled** and **direct** connection URLs from your Neon dashboard
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Deployment Steps
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+1. **Set Environment Variables in Vercel:**
+   - Go to your Vercel project settings → Environment Variables
+   - Add `DATABASE_URL` (pooled URL with `-pooler`)
+   - Add `DIRECT_URL` (direct URL without `-pooler`)
+   - Add `JWT_SECRET` (your JWT secret key)
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+2. **Deploy:**
+   ```bash
+   # Install Vercel CLI (if not already installed)
+   $ npm i -g vercel
+
+   # Deploy
+   $ vercel
+   ```
+
+3. **Run Migrations (First Deployment):**
+   After deploying, run migrations using Vercel CLI or your CI/CD pipeline:
+   ```bash
+   # Using Vercel CLI
+   $ vercel env pull .env.local
+   $ npm run db:migrate:deploy
+   $ npm run db:seed
+   ```
+
+### Important Notes for Vercel
+- The `postinstall` script automatically runs `prisma generate` during build
+- Use the **pooled connection URL** (`DATABASE_URL`) for all application queries
+- Use the **direct connection URL** (`DIRECT_URL`) for migrations only
+- The PrismaService uses a serverless-safe singleton pattern to prevent connection exhaustion
+- Neon's serverless driver handles connection pooling automatically
 
 ## Resources
 
@@ -77,7 +185,6 @@ Check out a few resources that may come in handy when working with NestJS:
 - Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
 - For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
 - To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
 - Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
 - Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
@@ -96,3 +203,4 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+

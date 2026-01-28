@@ -5,6 +5,14 @@ export declare class RequestLineDto {
 export declare class CreateRequestDto {
     lines: RequestLineDto[];
     comments?: string;
+    templateId?: string;
+}
+export declare class UpdateRequestDto {
+    issueFromStoreId?: string;
+    comments?: string;
+}
+export declare class PatchRequestLineDto {
+    quantity: number;
 }
 export declare class UpdateRequestLinesDto {
     lines: RequestLineDto[];

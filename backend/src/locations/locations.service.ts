@@ -6,11 +6,11 @@ export class LocationsService {
     constructor(private prisma: PrismaService) { }
 
     async findAll() {
-        return this.prisma.location.findMany();
+        return this.prisma.storeLocation.findMany();
     }
 
     async create(data: any) {
-        return this.prisma.location.create({
+        return this.prisma.storeLocation.create({
             data,
         });
     }

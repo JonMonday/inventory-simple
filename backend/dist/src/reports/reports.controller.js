@@ -46,6 +46,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsController = void 0;
+const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const reports_service_1 = require("./reports.service");
@@ -63,7 +64,7 @@ let ReportsController = class ReportsController {
             return this.exportCsv(res, 'stock-on-hand.csv', data.map(s => ({
                 itemCode: s.item.code,
                 itemName: s.item.name,
-                location: s.location.name,
+                location: s.storeLocation.name,
                 onHand: s.quantityOnHand,
                 reserved: s.reservedQuantity,
                 available: s.quantityOnHand - s.reservedQuantity,
@@ -87,7 +88,7 @@ let ReportsController = class ReportsController {
                 date: m.createdAtUtc.toISOString(),
                 itemCode: m.item.code,
                 itemName: m.item.name,
-                type: m.movementType,
+                type: m.movementType.label,
                 qty: m.quantity,
                 reason: m.reasonCode.name,
                 user: m.createdBy.fullName,
@@ -131,6 +132,7 @@ exports.ReportsController = ReportsController;
 __decorate([
     (0, common_1.Get)('stock-on-hand'),
     (0, permissions_decorator_1.Permissions)('reports.view'),
+    openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
@@ -140,6 +142,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('movements'),
     (0, permissions_decorator_1.Permissions)('reports.view'),
+    openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Res)({ passthrough: true })),
     __metadata("design:type", Function),
@@ -149,6 +152,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('low-stock'),
     (0, permissions_decorator_1.Permissions)('reports.view'),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
@@ -156,6 +160,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('request-kpis'),
     (0, permissions_decorator_1.Permissions)('reports.view'),
+    openapi.ApiResponse({ status: 200 }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
@@ -163,6 +168,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('adjustments-summary'),
     (0, permissions_decorator_1.Permissions)('reports.view'),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),

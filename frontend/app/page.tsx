@@ -65,7 +65,7 @@ export default function Dashboard() {
   const stats = {
     totalItems: items?.length || 0,
     lowStock: lowStock?.length || 0,
-    pendingRequests: requests?.filter((r: any) => r.status === "SUBMITTED" || r.status === "IN_REVIEW").length || 0,
+    pendingRequests: requests?.filter((r: any) => r.status?.code === "IN_FLOW").length || 0,
     completedToday: kpis?.completedToday || 0,
   };
 
@@ -134,16 +134,16 @@ export default function Dashboard() {
                       <FileText className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">#{request.humanId || request.id.slice(0, 8)}</p>
+                      <p className="text-sm font-medium">#{request.readableId || request.id.slice(0, 8)}</p>
                       <p className="text-xs text-muted-foreground">{request.requester?.fullName || 'Unknown'} • {new Date(request.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <Badge variant={
-                    request.status === "APPROVED" ? "default" :
-                      request.status === "SUBMITTED" ? "secondary" :
-                        request.status === "DRAFT" ? "outline" : "default"
+                    request.status?.code === "CONFIRMED" || request.status?.code === "FULFILLED" ? "default" :
+                      request.status?.code === "IN_FLOW" ? "secondary" :
+                        request.status?.code === "DRAFT" ? "outline" : "default"
                   }>
-                    {request.status}
+                    {request.status?.label || "Draft"}
                   </Badge>
                 </div>
               ))}

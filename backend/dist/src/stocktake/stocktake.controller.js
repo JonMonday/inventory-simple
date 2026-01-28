@@ -13,6 +13,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StocktakeController = void 0;
+const openapi = require("@nestjs/swagger");
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 const stocktake_service_1 = require("./stocktake.service");
@@ -50,6 +51,7 @@ exports.StocktakeController = StocktakeController;
 __decorate([
     (0, common_1.Post)(),
     (0, permissions_decorator_1.Permissions)('stocktake.create'),
+    openapi.ApiResponse({ status: 201 }),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -59,6 +61,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/start-count'),
     (0, permissions_decorator_1.Permissions)('stocktake.startCount'),
+    openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -68,6 +71,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/submit-count'),
     (0, permissions_decorator_1.Permissions)('stocktake.submitCount'),
+    openapi.ApiResponse({ status: 201, type: Object }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.Body)()),
@@ -78,6 +82,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/approve'),
     (0, permissions_decorator_1.Permissions)('stocktake.approve'),
+    openapi.ApiResponse({ status: 201 }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -87,6 +92,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(':id/apply'),
     (0, permissions_decorator_1.Permissions)('stocktake.apply'),
+    openapi.ApiResponse({ status: 201 }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -96,6 +102,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)(':id'),
     (0, permissions_decorator_1.Permissions)('stocktake.read'),
+    openapi.ApiResponse({ status: 200, type: Object }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -104,6 +111,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, permissions_decorator_1.Permissions)('stocktake.read'),
+    openapi.ApiResponse({ status: 200, type: [Object] }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

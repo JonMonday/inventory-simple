@@ -11,54 +11,24 @@ export declare class ItemsService {
             id: string;
             description: string | null;
             createdAt: Date;
-            name: string;
-            updatedAt: Date;
-            parentCategoryId: string | null;
-        };
-        stockSnapshots: {
-            locationId: string;
-            itemId: string;
-            quantityOnHand: number;
-            reservedQuantity: number;
-            lastUpdatedAt: Date;
-        }[];
-    } & {
-        id: string;
-        description: string | null;
-        createdAt: Date;
-        name: string;
-        updatedAt: Date;
-        code: string;
-        categoryId: string;
-        unitOfMeasure: string;
-        status: string;
-        reorderLevel: number | null;
-        reorderQuantity: number | null;
-    })[]>;
-    findOne(id: string): Promise<({
-        category: {
-            id: string;
-            description: string | null;
-            createdAt: Date;
+            isActive: boolean;
             name: string;
             updatedAt: Date;
             parentCategoryId: string | null;
         };
         stockSnapshots: ({
-            location: {
+            storeLocation: {
                 id: string;
                 createdAt: Date;
-                name: string;
                 isActive: boolean;
+                name: string;
+                code: string;
                 updatedAt: Date;
                 branchId: string;
-                code: string;
-                type: string;
-                parentLocationId: string | null;
             };
         } & {
-            locationId: string;
             itemId: string;
+            storeLocationId: string;
             quantityOnHand: number;
             reservedQuantity: number;
             lastUpdatedAt: Date;
@@ -68,11 +38,51 @@ export declare class ItemsService {
         description: string | null;
         createdAt: Date;
         name: string;
-        updatedAt: Date;
         code: string;
+        updatedAt: Date;
         categoryId: string;
         unitOfMeasure: string;
-        status: string;
+        statusId: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
+    })[]>;
+    findOne(id: string): Promise<({
+        category: {
+            id: string;
+            description: string | null;
+            createdAt: Date;
+            isActive: boolean;
+            name: string;
+            updatedAt: Date;
+            parentCategoryId: string | null;
+        };
+        stockSnapshots: ({
+            storeLocation: {
+                id: string;
+                createdAt: Date;
+                isActive: boolean;
+                name: string;
+                code: string;
+                updatedAt: Date;
+                branchId: string;
+            };
+        } & {
+            itemId: string;
+            storeLocationId: string;
+            quantityOnHand: number;
+            reservedQuantity: number;
+            lastUpdatedAt: Date;
+        })[];
+    } & {
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        name: string;
+        code: string;
+        updatedAt: Date;
+        categoryId: string;
+        unitOfMeasure: string;
+        statusId: string;
         reorderLevel: number | null;
         reorderQuantity: number | null;
     }) | null>;
@@ -89,6 +99,7 @@ export declare class ItemsService {
             id: string;
             description: string | null;
             createdAt: Date;
+            isActive: boolean;
             name: string;
             updatedAt: Date;
             parentCategoryId: string | null;
@@ -98,11 +109,11 @@ export declare class ItemsService {
         description: string | null;
         createdAt: Date;
         name: string;
-        updatedAt: Date;
         code: string;
+        updatedAt: Date;
         categoryId: string;
         unitOfMeasure: string;
-        status: string;
+        statusId: string;
         reorderLevel: number | null;
         reorderQuantity: number | null;
     }>;
@@ -119,6 +130,7 @@ export declare class ItemsService {
             id: string;
             description: string | null;
             createdAt: Date;
+            isActive: boolean;
             name: string;
             updatedAt: Date;
             parentCategoryId: string | null;
@@ -128,42 +140,53 @@ export declare class ItemsService {
         description: string | null;
         createdAt: Date;
         name: string;
-        updatedAt: Date;
         code: string;
+        updatedAt: Date;
         categoryId: string;
         unitOfMeasure: string;
-        status: string;
+        statusId: string;
         reorderLevel: number | null;
         reorderQuantity: number | null;
     }>;
-    delete(id: string): Promise<{
+    deactivate(id: string): Promise<{
         id: string;
         description: string | null;
         createdAt: Date;
         name: string;
-        updatedAt: Date;
         code: string;
+        updatedAt: Date;
         categoryId: string;
         unitOfMeasure: string;
-        status: string;
+        statusId: string;
+        reorderLevel: number | null;
+        reorderQuantity: number | null;
+    }>;
+    reactivate(id: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        name: string;
+        code: string;
+        updatedAt: Date;
+        categoryId: string;
+        unitOfMeasure: string;
+        statusId: string;
         reorderLevel: number | null;
         reorderQuantity: number | null;
     }>;
     getStockLevels(itemId: string): Promise<({
-        location: {
+        storeLocation: {
             id: string;
             createdAt: Date;
-            name: string;
             isActive: boolean;
+            name: string;
+            code: string;
             updatedAt: Date;
             branchId: string;
-            code: string;
-            type: string;
-            parentLocationId: string | null;
         };
     } & {
-        locationId: string;
         itemId: string;
+        storeLocationId: string;
         quantityOnHand: number;
         reservedQuantity: number;
         lastUpdatedAt: Date;
@@ -172,6 +195,7 @@ export declare class ItemsService {
         id: string;
         description: string | null;
         createdAt: Date;
+        isActive: boolean;
         name: string;
         updatedAt: Date;
         parentCategoryId: string | null;

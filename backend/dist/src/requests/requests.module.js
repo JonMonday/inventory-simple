@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RequestsModule = void 0;
 const common_1 = require("@nestjs/common");
 const requests_service_1 = require("./requests.service");
+const request_workflow_service_1 = require("./request-workflow.service");
 const requests_controller_1 = require("./requests.controller");
 const prisma_module_1 = require("../prisma/prisma.module");
 const inventory_module_1 = require("../inventory/inventory.module");
@@ -18,9 +19,9 @@ exports.RequestsModule = RequestsModule;
 exports.RequestsModule = RequestsModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule, inventory_module_1.InventoryModule],
-        providers: [requests_service_1.RequestsService],
+        providers: [requests_service_1.RequestsService, request_workflow_service_1.RequestWorkflowService],
         controllers: [requests_controller_1.RequestsController],
-        exports: [requests_service_1.RequestsService],
+        exports: [requests_service_1.RequestsService, request_workflow_service_1.RequestWorkflowService],
     })
 ], RequestsModule);
 //# sourceMappingURL=requests.module.js.map

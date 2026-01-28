@@ -18,10 +18,10 @@ let LocationsService = class LocationsService {
         this.prisma = prisma;
     }
     async findAll() {
-        return this.prisma.location.findMany();
+        return this.prisma.storeLocation.findMany();
     }
     async create(data) {
-        return this.prisma.location.create({
+        return this.prisma.storeLocation.create({
             data,
         });
     }

@@ -3,48 +3,273 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AssignmentMode {
+  AUTO_POOL
+  MANUAL_FROM_POOL
+  SPECIFIC_USERS
+}
+
+enum AssignmentType {
+  POOL
+  USER
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Department {
+  id            String                 @id @default(uuid())
+  code          String                 @unique
+  name          String
+  description   String?
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  branchId      String
+  branch        Branch                 @relation(fields: [branchId], references: [id])
+  requests      Request[]
+  workflowSteps TemplateWorkflowStep[]
+  units         Unit[]
+  users         User[]
+
+  @@index([branchId])
+  @@map("departments")
+}
+
+model Unit {
+  id            String                 @id @default(uuid())
+  code          String                 @unique
+  name          String
+  description   String?
+  departmentId  String
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  jobRoles      JobRole[]
+  requests      Request[]
+  workflowSteps TemplateWorkflowStep[]
+  department    Department             @relation(fields: [departmentId], references: [id])
+  users         User[]
+
+  @@index([departmentId])
+  @@map("units")
+}
+
+model JobRole {
+  id            String                 @id @default(uuid())
+  code          String                 @unique
+  name          String
+  description   String?
+  unitId        String
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  permissions   JobRolePermission[]
+  unit          Unit                   @relation(fields: [unitId], references: [id])
+  workflowSteps TemplateWorkflowStep[]
+  users         User[]
+
+  @@index([unitId])
+  @@map("job_roles")
+}
+
+model JobRolePermission {
+  jobRoleId    String
+  permissionId String
+  jobRole      JobRole    @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([jobRoleId, permissionId])
+  @@map("job_role_permissions")
+}
+
+model Branch {
+  id             String          @id @default(uuid())
+  code           String          @unique
+  name           String
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  departments    Department[]
+  storeLocations StoreLocation[]
+  users          User[]
+  workflowSteps  TemplateWorkflowStep[]
+
+  @@map("branches")
+}
+
+model StoreLocation {
+  id                String            @id @default(uuid())
+  code              String            @unique
+  name              String
+  branchId          String
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  forecastResults   ForecastResult[]
+  ledgerEntriesFrom InventoryLedger[] @relation("FromStoreLocation")
+  ledgerEntriesTo   InventoryLedger[] @relation("ToStoreLocation")
+  requests          Request[]
+  stockSnapshots    StockSnapshot[]
+  stocktakes        Stocktake[]
+  branch            Branch            @relation(fields: [branchId], references: [id])
+  users             User[]
+
+  @@index([branchId])
+  @@map("store_locations")
+}
+
+model RequestStatus {
+  id          String         @id @default(uuid())
+  code        String         @unique
+  label       String
+  description String?
+  isEditable  Boolean        @default(false)
+  isTerminal  Boolean        @default(false)
+  sortOrder   Int
+  eventsFrom  RequestEvent[] @relation("FromStatus")
+  eventsTo    RequestEvent[] @relation("ToStatus")
+  requests    Request[]
+
+  @@map("request_statuses")
+}
+
+model RequestStageType {
+  id            String                 @id @default(uuid())
+  code          String                 @unique
+  label         String
+  description   String?
+  sortOrder     Int
+  assignments   RequestAssignment[]
+  comments      RequestComment[]
+  eventsFrom    RequestEvent[]         @relation("FromStage")
+  eventsTo      RequestEvent[]         @relation("ToStage")
+  requests      Request[]
+  workflowSteps TemplateWorkflowStep[]
+
+  @@map("request_stage_types")
+}
+
+model RequestEventType {
+  id          String         @id @default(uuid())
+  code        String         @unique
+  label       String
+  description String?
+  events      RequestEvent[]
+
+  @@map("request_event_types")
+}
+
+model CommentType {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  label       String
+  description String?
+  comments    RequestComment[]
+
+  @@map("comment_types")
+}
+
+model ParticipantRoleType {
+  id           String               @id @default(uuid())
+  code         String               @unique
+  label        String
+  description  String?
+  participants RequestParticipant[]
+
+  @@map("participant_role_types")
+}
+
+model LedgerMovementType {
+  id            String                   @id @default(uuid())
+  code          String                   @unique
+  label         String
+  description   String?
+  ledgerEntries InventoryLedger[]
+  reasonCodes   ReasonCodeMovementType[]
+
+  @@map("ledger_movement_types")
+}
+
+model StocktakeStatus {
+  id         String      @id @default(uuid())
+  code       String      @unique
+  label      String
+  sortOrder  Int
+  stocktakes Stocktake[]
+
+  @@map("stocktake_statuses")
+}
+
+model ItemStatus {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  label       String
+  description String?
+  items       Item[]
+
+  @@map("item_statuses")
 }
 
 model User {
-  id                  String              @id @default(uuid())
-  email               String              @unique
-  passwordHash        String
-  fullName            String
-  departmentId        String?
-  locationId          String?
-  mustChangePassword  Boolean             @default(false)
-  isActive            Boolean             @default(true)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  auditLogs           AuditLog[]
-  brandingUpdates     BrandingSettings[]
-  createdForecastRuns ForecastRun[]
-  createdImportJobs   ImportJob[]
-  createdLedgers      InventoryLedger[]   @relation("CreatedBy")
-  requestsAssigned    RequestAssignment[]
-  requestEvents       RequestEvent[]
-  requestsCreated     Request[]           @relation("Requester")
-  approvedStocktakes  Stocktake[]         @relation("StocktakeApprover")
-  createdStocktakes   Stocktake[]
-  permissions         UserPermission[]
-  assignedRoles       UserRole[]          @relation("AssignedBy")
-  roles               UserRole[]
-  location            Location?           @relation("UserLocation", fields: [locationId], references: [id])
-  department          Location?           @relation("UserDepartment", fields: [departmentId], references: [id])
+  id                     String               @id @default(uuid())
+  email                  String               @unique
+  passwordHash           String
+  fullName               String
+  branchId               String
+  departmentId           String
+  unitId                 String
+  jobRoleId              String
+  primaryStoreLocationId String?
+  mustChangePassword     Boolean              @default(false)
+  isActive               Boolean              @default(true)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  auditLogs              AuditLog[]
+  brandingUpdates        BrandingSettings[]
+  createdForecastRuns    ForecastRun[]
+  createdImportJobs      ImportJob[]
+  createdLedgers         InventoryLedger[]    @relation("CreatedBy")
+  assignmentsGiven       RequestAssignment[]  @relation("AssignedBy")
+  assignmentsReceived    RequestAssignment[]  @relation("AssignedTo")
+  requestComments        RequestComment[]
+  requestEvents          RequestEvent[]
+  participatedRequests   RequestParticipant[]
+  templatesCreated       RequestTemplate[]
+  requestsCreated        Request[]            @relation("Requester")
+  approvedStocktakes     Stocktake[]          @relation("StocktakeApprover")
+  createdStocktakes      Stocktake[]
+  permissions            UserPermission[]
+  roles                  UserRole[]
+  branch                 Branch               @relation(fields: [branchId], references: [id])
+  department             Department           @relation(fields: [departmentId], references: [id])
+  jobRole                JobRole              @relation(fields: [jobRoleId], references: [id])
+  primaryStoreLocation   StoreLocation?       @relation(fields: [primaryStoreLocationId], references: [id])
+  unit                   Unit                 @relation(fields: [unitId], references: [id])
+  specificStepAssignments TemplateStepSpecificUser[]
 
-  branchId            String?
-  branch              Branch?             @relation(fields: [branchId], references: [id])
-
+  @@index([branchId])
+  @@index([departmentId])
+  @@index([unitId])
+  @@index([jobRoleId])
   @@map("users")
 }
 
 model Role {
   id           String           @id @default(uuid())
+  code         String           @unique
   name         String           @unique
   description  String?
   isSystemRole Boolean          @default(false)
   createdAt    DateTime         @default(now())
+  isActive     Boolean          @default(true)
   permissions  RolePermission[]
   users        UserRole[]
 
@@ -52,15 +277,17 @@ model Role {
 }
 
 model Permission {
-  id          String           @id @default(uuid())
-  resource    String
-  action      String
+  id          String              @id @default(uuid())
   description String?
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime            @default(now())
+  isActive    Boolean             @default(true)
+  group       String
+  key         String              @unique
+  label       String
+  jobRoles    JobRolePermission[]
   roles       RolePermission[]
   users       UserPermission[]
 
-  @@unique([resource, action])
   @@map("permissions")
 }
 
@@ -75,13 +302,11 @@ model RolePermission {
 }
 
 model UserRole {
-  userId       String
-  roleId       String
-  assignedAt   DateTime @default(now())
-  assignedById String?
-  assignedBy   User?    @relation("AssignedBy", fields: [assignedById], references: [id])
-  role         Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, roleId])
   @@map("user_roles")
@@ -97,217 +322,36 @@ model UserPermission {
   @@map("user_permissions")
 }
 
-model Category {
-  id               String     @id @default(uuid())
-  name             String     @unique
-  description      String?
-  parentCategoryId String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  parentCategory   Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
-  childCategories  Category[] @relation("CategoryHierarchy")
-  items            Item[]
-
-  @@map("categories")
-}
-
-model Item {
-  id              String            @id @default(uuid())
-  code            String            @unique
-  name            String
-  description     String?
-  categoryId      String
-  unitOfMeasure   String
-  status          String            @default("ACTIVE")
-  reorderLevel    Int?
-  reorderQuantity Int?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  forecastResults ForecastResult[]
-  ledgerEntries   InventoryLedger[]
-  category        Category          @relation(fields: [categoryId], references: [id])
-  requestLines    RequestLine[]
-  stockSnapshots  StockSnapshot[]
-  stocktakeLines  StocktakeLine[]
-
-  @@index([categoryId])
-  @@index([status])
-  @@map("items")
-}
-
-model Location {
-  id                String            @id @default(uuid())
-  code              String            @unique
-  name              String
-  type              String
-  parentLocationId  String?
-  isActive          Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  forecastResults   ForecastResult[]
-  ledgerEntriesTo   InventoryLedger[] @relation("ToLocation")
-  ledgerEntriesFrom InventoryLedger[] @relation("FromLocation")
-  parentLocation    Location?         @relation("LocationHierarchy", fields: [parentLocationId], references: [id])
-  childLocations    Location[]        @relation("LocationHierarchy")
-  requestsFulfilled Request[]         @relation("RequestIssueFrom")
-  requestsAsLoc     Request[]         @relation("RequestLocation")
-  requestsAsDept    Request[]         @relation("RequestDepartment")
-  stockSnapshots    StockSnapshot[]
-  stocktakes        Stocktake[]
-  usersInLocation   User[]            @relation("UserLocation")
-  usersInDepartment User[]            @relation("UserDepartment")
-
-  branchId          String
-  branch            Branch            @relation(fields: [branchId], references: [id])
-
-  @@index([type])
-  @@index([isActive])
-  @@map("locations")
-}
-
-model ReasonCode {
-  id               String                   @id @default(uuid())
-  code             String                   @unique
-  name             String
-  description      String?
-  isActive         Boolean                  @default(true)
-  requiresFreeText Boolean                  @default(false)
-  requiresApproval Boolean                  @default(false)
-  approvalThreshold Float?
-  label            String?
-  createdAt        DateTime                 @default(now())
-  ledgerEntries    InventoryLedger[]
-  allowedMovements ReasonCodeMovementType[]
-
-  @@index([isActive])
-  @@map("reason_codes")
-}
-
-model ReasonCodeMovementType {
-  reasonCodeId String
-  movementType String
-  reasonCode   ReasonCode @relation(fields: [reasonCodeId], references: [id], onDelete: Cascade)
-
-  @@id([reasonCodeId, movementType])
-  @@map("reason_code_movement_types")
-}
-
-model Branch {
-  id        String     @id @default(uuid())
-  code      String     @unique
-  name      String
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  locations Location[]
-  users     User[]
-
-  @@map("branches")
-}
-
-model InventoryLedger {
-  id                   String            @id @default(uuid())
-  itemId               String
-  fromLocationId       String?
-  toLocationId         String?
-  movementType         String
-  quantity             Int
-  unitOfMeasure        String
-  reasonCodeId         String
-  reasonText           String?
-  referenceNo          String?
-  department           String?
-  useBy                String?
-  suppliedBy           String?
-  receivedBy           String?
-  comments             String?
-  createdByUserId      String
-  createdAtUtc         DateTime          @default(now())
-  source               String            @default("UI")
-  importJobId          String?
-  correctionOfLedgerId String?
-  reversalOfLedgerId   String?
-  unitCost             Float?
-  totalCost            Float?
-  reversalOfLedger     InventoryLedger?  @relation("Reversals", fields: [reversalOfLedgerId], references: [id])
-  reversals            InventoryLedger[] @relation("Reversals")
-  correctionOfLedger   InventoryLedger?  @relation("Corrections", fields: [correctionOfLedgerId], references: [id])
-  corrections          InventoryLedger[] @relation("Corrections")
-  importJob            ImportJob?        @relation(fields: [importJobId], references: [id])
-  createdBy            User              @relation("CreatedBy", fields: [createdByUserId], references: [id])
-  reasonCode           ReasonCode        @relation(fields: [reasonCodeId], references: [id])
-  toLocation           Location?         @relation("ToLocation", fields: [toLocationId], references: [id])
-  fromLocation         Location?         @relation("FromLocation", fields: [fromLocationId], references: [id])
-  item                 Item              @relation(fields: [itemId], references: [id])
-
-  @@index([itemId])
-  @@index([fromLocationId])
-  @@index([toLocationId])
-  @@index([movementType])
-  @@index([createdAtUtc])
-  @@index([importJobId])
-  @@map("inventory_ledger")
-}
-
-model StockSnapshot {
-  itemId           String
-  locationId       String
-  quantityOnHand   Int
-  reservedQuantity Int           @default(0)
-  lastUpdatedAt    DateTime      @updatedAt
-  reservations     Reservation[]
-  location         Location      @relation(fields: [locationId], references: [id])
-  item             Item          @relation(fields: [itemId], references: [id])
-
-  @@id([itemId, locationId])
-  @@index([locationId])
-  @@map("stock_snapshots")
-}
-
-model Reservation {
-  id            String        @id @default(uuid())
-  requestLineId String        @unique
-  itemId        String
-  locationId    String
-  quantity      Int
-  createdAt     DateTime      @default(now())
-  requestLine   RequestLine   @relation(fields: [requestLineId], references: [id], onDelete: Cascade)
-  stockSnapshot StockSnapshot @relation(fields: [itemId, locationId], references: [itemId, locationId])
-
-  @@index([itemId, locationId])
-  @@map("reservations")
-}
-
-model SystemSequence {
-  id        String   @id @default(uuid())
-  name      String
-  year      Int
-  nextValue Int
-  updatedAt DateTime @updatedAt
-
-  @@unique([name, year])
-  @@map("system_sequences")
-}
-
 model Request {
-  id                  String              @id @default(uuid())
-  readableId          String              @unique
-  requesterUserId     String
-  status              String              @default("DRAFT")
-  departmentId        String?
-  locationId          String?
-  issueFromLocationId String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  assignments         RequestAssignment[]
-  events              RequestEvent[]
-  lines               RequestLine[]
-  issueFrom           Location?           @relation("RequestIssueFrom", fields: [issueFromLocationId], references: [id])
-  location            Location?           @relation("RequestLocation", fields: [locationId], references: [id])
-  department          Location?           @relation("RequestDepartment", fields: [departmentId], references: [id])
-  requester           User                @relation("Requester", fields: [requesterUserId], references: [id])
+  id                 String               @id @default(uuid())
+  readableId         String               @unique
+  requesterUserId    String
+  templateId         String?
+  statusId           String
+  currentStageTypeId String?
+  departmentId       String
+  unitId             String
+  issueFromStoreId   String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  submittedAt        DateTime?
+  assignments        RequestAssignment[]
+  comments           RequestComment[]
+  events             RequestEvent[]
+  lines              RequestLine[]
+  participants       RequestParticipant[]
+  currentStageType   RequestStageType?    @relation(fields: [currentStageTypeId], references: [id])
+  department         Department           @relation(fields: [departmentId], references: [id])
+  issueFromStore     StoreLocation?       @relation(fields: [issueFromStoreId], references: [id])
+  requester          User                 @relation("Requester", fields: [requesterUserId], references: [id])
+  status             RequestStatus        @relation(fields: [statusId], references: [id])
+  template           RequestTemplate?     @relation(fields: [templateId], references: [id])
+  unit               Unit                 @relation(fields: [unitId], references: [id])
+  reservations       Reservation[]
 
-  @@index([status])
+  @@index([statusId])
   @@index([requesterUserId])
+  @@index([currentStageTypeId])
   @@map("requests")
 }
 
@@ -325,41 +369,306 @@ model RequestLine {
 }
 
 model RequestAssignment {
-  id          String    @id @default(uuid())
-  requestId   String
-  userId      String
-  level       String
-  isActive    Boolean   @default(true)
-  assignedAt  DateTime  @default(now())
-  completedAt DateTime?
-  user        User      @relation(fields: [userId], references: [id])
-  request     Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  id           String            @id @default(uuid())
+  requestId    String
+  assignedToId String?
+  stageTypeId  String?
+  assignedById String?
+  assignedAt   DateTime          @default(now())
+  completedAt  DateTime?
+  assignmentType AssignmentType    @default(USER)
+  assignedRoleKey String?
+  status         AssignmentStatus  @default(ACTIVE)
+  assignedBy     User?             @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedTo     User?             @relation("AssignedTo", fields: [assignedToId], references: [id])
+  request        Request           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stageType      RequestStageType? @relation(fields: [stageTypeId], references: [id])
 
-  @@index([requestId])
-  @@index([userId])
+  @@index([requestId, status])
+  @@index([assignedToId, status])
   @@map("request_assignments")
 }
 
-model RequestEvent {
-  id          String   @id @default(uuid())
-  requestId   String
-  userId      String?
-  type        String
-  description String
-  dataJson    String?
-  createdAt   DateTime @default(now())
-  user        User?    @relation(fields: [userId], references: [id])
-  request     Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+model RequestParticipant {
+  id                    String              @id @default(uuid())
+  requestId             String
+  userId                String
+  participantRoleTypeId String
+  firstSeenAt           DateTime            @default(now())
+  lastActionAt          DateTime            @updatedAt
+  participantRoleType   ParticipantRoleType @relation(fields: [participantRoleTypeId], references: [id])
+  request               Request             @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id])
 
-  @@index([requestId])
+  @@unique([requestId, userId])
+  @@index([userId])
+  @@map("request_participants")
+}
+
+model RequestComment {
+  id            String            @id @default(uuid())
+  requestId     String
+  authorId      String
+  stageTypeId   String?
+  commentTypeId String
+  body          String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  author        User              @relation(fields: [authorId], references: [id])
+  commentType   CommentType       @relation(fields: [commentTypeId], references: [id])
+  request       Request           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  stageType     RequestStageType? @relation(fields: [stageTypeId], references: [id])
+  events        RequestEvent[]
+
+  @@index([requestId, createdAt])
+  @@map("request_comments")
+}
+
+model RequestEvent {
+  id              String            @id @default(uuid())
+  requestId       String
+  eventTypeId     String
+  actedByUserId   String?
+  fromStatusId    String?
+  toStatusId      String?
+  fromStageTypeId String?
+  toStageTypeId   String?
+  commentId       String?
+  metadata        String?
+  createdAt       DateTime          @default(now())
+  actedBy         User?             @relation(fields: [actedByUserId], references: [id])
+  comment         RequestComment?   @relation(fields: [commentId], references: [id])
+  eventType       RequestEventType  @relation(fields: [eventTypeId], references: [id])
+  fromStageType   RequestStageType? @relation("FromStage", fields: [fromStageTypeId], references: [id])
+  fromStatus      RequestStatus?    @relation("FromStatus", fields: [fromStatusId], references: [id])
+  request         Request           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  toStageType     RequestStageType? @relation("ToStage", fields: [toStageTypeId], references: [id])
+  toStatus        RequestStatus?    @relation("ToStatus", fields: [toStatusId], references: [id])
+
+  @@index([requestId, createdAt])
   @@map("request_events")
+}
+
+model RequestTemplate {
+  id            String                 @id @default(uuid())
+  name          String
+  description   String?
+  isActive      Boolean                @default(true)
+  isDefault     Boolean                @default(false)
+  createdById   String
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  createdBy     User                   @relation(fields: [createdById], references: [id])
+  requests      Request[]
+  templateLines TemplateRequestLine[]
+  workflowSteps TemplateWorkflowStep[]
+
+  @@map("request_templates")
+}
+
+model TemplateWorkflowStep {
+  id           String           @id @default(uuid())
+  templateId   String
+  stageTypeId  String
+  departmentId String?
+  unitId       String?
+  jobRoleId    String?
+  stepOrder                  Int
+  isRequired                 Boolean          @default(true)
+  assignmentMode             AssignmentMode   @default(AUTO_POOL)
+  roleKey                    String
+  includeRequesterDepartment Boolean          @default(false)
+  minApprovers               Int              @default(1)
+  maxApprovers               Int              @default(1)
+  requireAll                 Boolean          @default(false)
+  allowRequesterSelect       Boolean          @default(false)
+  branchId                   String?
+  branch                     Branch?          @relation(fields: [branchId], references: [id])
+  department                 Department?      @relation(fields: [departmentId], references: [id])
+  jobRole                    JobRole?         @relation(fields: [jobRoleId], references: [id])
+  stageType                  RequestStageType @relation(fields: [stageTypeId], references: [id])
+  template                   RequestTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  unit                       Unit?            @relation(fields: [unitId], references: [id])
+  specificUsers              TemplateStepSpecificUser[]
+
+  @@unique([templateId, stepOrder])
+  @@index([templateId])
+  @@map("template_workflow_steps")
+}
+
+model TemplateStepSpecificUser {
+  id     String               @id @default(uuid())
+  stepId String
+  userId String
+  step   TemplateWorkflowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  user   User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([stepId, userId])
+  @@map("template_step_specific_users")
+}
+
+model TemplateRequestLine {
+  id         String          @id @default(uuid())
+  templateId String
+  itemId     String
+  quantity   Int
+  item       Item            @relation(fields: [itemId], references: [id])
+  template   RequestTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@map("template_request_lines")
+}
+
+model Category {
+  id               String     @id @default(uuid())
+  name             String     @unique
+  description      String?
+  parentCategoryId String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  isActive         Boolean    @default(true)
+  parentCategory   Category?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  childCategories  Category[] @relation("CategoryHierarchy")
+  items            Item[]
+
+  @@map("categories")
+}
+
+model Item {
+  id              String                @id @default(uuid())
+  code            String                @unique
+  name            String
+  description     String?
+  categoryId      String
+  unitOfMeasure   String
+  statusId        String
+  reorderLevel    Int?
+  reorderQuantity Int?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  forecastResults ForecastResult[]
+  ledgerEntries   InventoryLedger[]
+  category        Category              @relation(fields: [categoryId], references: [id])
+  status          ItemStatus            @relation(fields: [statusId], references: [id])
+  requestLines    RequestLine[]
+  stockSnapshots  StockSnapshot[]
+  stocktakeLines  StocktakeLine[]
+  templateLines   TemplateRequestLine[]
+
+  @@index([categoryId])
+  @@index([statusId])
+  @@map("items")
+}
+
+model StockSnapshot {
+  itemId           String
+  storeLocationId  String
+  quantityOnHand   Int
+  reservedQuantity Int           @default(0)
+  lastUpdatedAt    DateTime      @updatedAt
+  reservations     Reservation[]
+  item             Item          @relation(fields: [itemId], references: [id])
+  storeLocation    StoreLocation @relation(fields: [storeLocationId], references: [id])
+
+  @@id([itemId, storeLocationId])
+  @@index([storeLocationId])
+  @@map("stock_snapshots")
+}
+
+model Reservation {
+  id              String        @id @default(uuid())
+  requestLineId   String        @unique
+  itemId          String
+  storeLocationId String
+  quantity        Int
+  createdAt       DateTime      @default(now())
+  requestId       String?
+  stockSnapshot   StockSnapshot @relation(fields: [itemId, storeLocationId], references: [itemId, storeLocationId])
+  request         Request?      @relation(fields: [requestId], references: [id])
+  requestLine     RequestLine   @relation(fields: [requestLineId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, storeLocationId])
+  @@map("reservations")
+}
+
+model ReasonCode {
+  id                String                   @id @default(uuid())
+  code              String                   @unique
+  name              String
+  description       String?
+  isActive          Boolean                  @default(true)
+  requiresFreeText  Boolean                  @default(false)
+  requiresApproval  Boolean                  @default(false)
+  approvalThreshold Float?
+  label             String?
+  createdAt         DateTime                 @default(now())
+  ledgerEntries     InventoryLedger[]
+  allowedMovements  ReasonCodeMovementType[]
+
+  @@index([isActive])
+  @@map("reason_codes")
+}
+
+model ReasonCodeMovementType {
+  reasonCodeId         String
+  ledgerMovementTypeId String
+  ledgerMovementType   LedgerMovementType @relation(fields: [ledgerMovementTypeId], references: [id], onDelete: Cascade)
+  reasonCode           ReasonCode         @relation(fields: [reasonCodeId], references: [id], onDelete: Cascade)
+
+  @@id([reasonCodeId, ledgerMovementTypeId])
+  @@map("reason_code_movement_types")
+}
+
+model InventoryLedger {
+  id                   String             @id @default(uuid())
+  itemId               String
+  fromStoreLocationId  String?
+  toStoreLocationId    String?
+  movementTypeId       String
+  quantity             Int
+  unitOfMeasure        String
+  reasonCodeId         String
+  reasonText           String?
+  referenceNo          String?
+  department           String?
+  useBy                String?
+  suppliedBy           String?
+  receivedBy           String?
+  comments             String?
+  createdByUserId      String
+  createdAtUtc         DateTime           @default(now())
+  source               String             @default("UI")
+  importJobId          String?
+  correctionOfLedgerId String?
+  reversalOfLedgerId   String?
+  unitCost             Float?
+  totalCost            Float?
+  correctionOfLedger   InventoryLedger?   @relation("Corrections", fields: [correctionOfLedgerId], references: [id])
+  corrections          InventoryLedger[]  @relation("Corrections")
+  createdBy            User               @relation("CreatedBy", fields: [createdByUserId], references: [id])
+  fromStoreLocation    StoreLocation?     @relation("FromStoreLocation", fields: [fromStoreLocationId], references: [id])
+  importJob            ImportJob?         @relation(fields: [importJobId], references: [id])
+  item                 Item               @relation(fields: [itemId], references: [id])
+  movementType         LedgerMovementType @relation(fields: [movementTypeId], references: [id])
+  reasonCode           ReasonCode         @relation(fields: [reasonCodeId], references: [id])
+  reversalOfLedger     InventoryLedger?   @relation("Reversals", fields: [reversalOfLedgerId], references: [id])
+  reversals            InventoryLedger[]  @relation("Reversals")
+  toStoreLocation      StoreLocation?     @relation("ToStoreLocation", fields: [toStoreLocationId], references: [id])
+
+  @@index([itemId])
+  @@index([fromStoreLocationId])
+  @@index([toStoreLocationId])
+  @@index([movementTypeId])
+  @@index([createdAtUtc])
+  @@index([importJobId])
+  @@map("inventory_ledger")
 }
 
 model Stocktake {
   id               String          @id @default(uuid())
   name             String
-  locationId       String
-  status           String          @default("DRAFT")
+  storeLocationId  String
+  statusId         String
   startedAt        DateTime?
   completedAt      DateTime?
   createdByUserId  String
@@ -369,10 +678,11 @@ model Stocktake {
   lines            StocktakeLine[]
   approvedBy       User?           @relation("StocktakeApprover", fields: [approvedByUserId], references: [id])
   createdBy        User            @relation(fields: [createdByUserId], references: [id])
-  location         Location        @relation(fields: [locationId], references: [id])
+  status           StocktakeStatus @relation(fields: [statusId], references: [id])
+  storeLocation    StoreLocation   @relation(fields: [storeLocationId], references: [id])
 
-  @@index([locationId])
-  @@index([status])
+  @@index([storeLocationId])
+  @@index([statusId])
   @@map("stocktakes")
 }
 
@@ -390,6 +700,17 @@ model StocktakeLine {
   @@index([stocktakeId])
   @@index([itemId])
   @@map("stocktake_lines")
+}
+
+model SystemSequence {
+  id        String   @id @default(uuid())
+  name      String
+  year      Int
+  nextValue Int
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, year])
+  @@map("system_sequences")
 }
 
 model ImportJob {
@@ -442,20 +763,20 @@ model ForecastRun {
 }
 
 model ForecastResult {
-  id                   String      @id @default(uuid())
+  id                   String        @id @default(uuid())
   forecastRunId        String
   itemId               String
-  locationId           String
+  storeLocationId      String
   predictedConsumption Int
   currentStock         Int
   reorderSuggestion    Int
-  location             Location    @relation(fields: [locationId], references: [id])
-  item                 Item        @relation(fields: [itemId], references: [id])
-  forecastRun          ForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+  forecastRun          ForecastRun   @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+  item                 Item          @relation(fields: [itemId], references: [id])
+  storeLocation        StoreLocation @relation(fields: [storeLocationId], references: [id])
 
   @@index([forecastRunId])
   @@index([itemId])
-  @@index([locationId])
+  @@index([storeLocationId])
   @@map("forecast_results")
 }
 

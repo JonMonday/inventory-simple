@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CreateStocktakeDto, SubmitStocktakeCountDto } from './dto/stocktake.dto';
@@ -10,32 +10,36 @@ export class StocktakeService {
         private inventoryService: InventoryService
     ) { }
 
+    private async getStatusId(code: string) {
+        const s = await this.prisma.stocktakeStatus.findUnique({ where: { code } });
+        if (!s) throw new InternalServerErrorException(`Stocktake status ${code} not found`);
+        return s.id;
+    }
+
     async create(userId: string, dto: CreateStocktakeDto) {
+        const statusId = await this.getStatusId('DRAFT');
         return this.prisma.stocktake.create({
             data: {
                 name: dto.name,
-                locationId: dto.locationId,
-                status: 'DRAFT',
+                storeLocationId: dto.locationId,
+                statusId,
                 createdByUserId: userId
             }
         });
     }
 
     async startCounting(id: string, userId: string) {
+        const countingStatusId = await this.getStatusId('COUNTING');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { status: true }
+            });
             if (!stocktake) throw new NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'DRAFT') throw new BadRequestException('Can only start counting from DRAFT status');
-
-            // Snapshot all items in location (or allow selecting items? Assuming all for now)
-            // We need to find all items that have stock in this location, OR all items in system?
-            // Usually stocktake is specific. Let's assume we find all items with active snapshots in this location.
-            // + items that exist but have no snapshot (0 qty).
-            // For simplicity: Load all items in system and create lines? 
-            // Better: Load existing snapshots for this location.
+            if (stocktake.status.code !== 'DRAFT') throw new BadRequestException('Can only start counting from DRAFT status');
 
             const snapshots = await tx.stockSnapshot.findMany({
-                where: { locationId: stocktake.locationId }
+                where: { storeLocationId: stocktake.storeLocationId }
             });
 
             await tx.stocktakeLine.deleteMany({ where: { stocktakeId: id } });
@@ -46,7 +50,7 @@ export class StocktakeService {
                         stocktakeId: id,
                         itemId: snap.itemId,
                         systemQuantity: snap.quantityOnHand,
-                        countedQuantity: null // not counted yet
+                        countedQuantity: null
                     }
                 });
             }
@@ -54,7 +58,7 @@ export class StocktakeService {
             return tx.stocktake.update({
                 where: { id },
                 data: {
-                    status: 'COUNTING',
+                    statusId: countingStatusId,
                     startedAt: new Date()
                 },
                 include: { lines: true }
@@ -63,21 +67,21 @@ export class StocktakeService {
     }
 
     async submitCount(id: string, userId: string, dto: SubmitStocktakeCountDto) {
+        const completedStatusId = await this.getStatusId('COMPLETED');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { status: true }
+            });
             if (!stocktake) throw new NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'COUNTING') throw new BadRequestException('Stocktake must be in COUNTING status');
+            if (stocktake.status.code !== 'COUNTING') throw new BadRequestException('Stocktake must be in COUNTING status');
 
             for (const lineDto of dto.lines) {
-                // Find line, or if not found (maybe item had no snapshot), create it?
-                // Let's assume we only count pre-existing lines for now, or allow adding lines.
-                // We'll try to find existing line first.
                 let line = await tx.stocktakeLine.findFirst({
                     where: { stocktakeId: id, itemId: lineDto.itemId }
                 });
 
                 if (!line) {
-                    // Item was not in snapshots, so system qty is 0.
                     line = await tx.stocktakeLine.create({
                         data: {
                             stocktakeId: id,
@@ -102,17 +106,18 @@ export class StocktakeService {
 
             return tx.stocktake.update({
                 where: { id },
-                data: { status: 'SUBMITTED' },
+                data: { statusId: completedStatusId },
                 include: { lines: true }
             });
         });
     }
 
     async approve(id: string, userId: string) {
+        const statusId = await this.getStatusId('APPROVED');
         return this.prisma.stocktake.update({
             where: { id },
             data: {
-                status: 'APPROVED',
+                statusId,
                 approvedByUserId: userId,
                 approvedAt: new Date()
             }
@@ -120,14 +125,17 @@ export class StocktakeService {
     }
 
     async apply(id: string, userId: string) {
+        const appliedStatusId = await this.getStatusId('APPLIED');
         return this.prisma.$transaction(async (tx) => {
-            const stocktake = await tx.stocktake.findUnique({ where: { id }, include: { lines: true } });
+            const stocktake = await tx.stocktake.findUnique({
+                where: { id },
+                include: { lines: true, status: true }
+            });
             if (!stocktake) throw new NotFoundException('Stocktake not found');
-            if (stocktake.status !== 'APPROVED') throw new BadRequestException('Stocktake must be APPROVED before applying');
+            if (stocktake.status.code !== 'APPROVED') throw new BadRequestException('Stocktake must be APPROVED before applying');
 
-            // Find an ADJUSTMENT reason code
             const reasonCode = await tx.reasonCode.findFirst({
-                where: { allowedMovements: { some: { movementType: 'ADJUSTMENT' } }, isActive: true }
+                where: { allowedMovements: { some: { ledgerMovementType: { code: 'ADJUSTMENT' } } }, isActive: true }
             });
             if (!reasonCode) throw new BadRequestException('No active ADJUSTMENT reason code found');
 
@@ -135,13 +143,13 @@ export class StocktakeService {
                 if (line.variance !== 0 && line.variance !== null) {
                     await this.inventoryService.recordMovement(tx, {
                         itemId: line.itemId,
-                        locationId: stocktake.locationId,
+                        locationId: stocktake.storeLocationId,
                         movementType: 'ADJUSTMENT',
                         quantity: line.variance,
                         reasonCodeId: reasonCode.id,
                         userId,
                         referenceNo: `STOCKTAKE-${stocktake.name}`,
-                        comments: `Variance: ${line.variance} (System: ${line.systemQuantity}, Counted: ${line.countedQuantity})`
+                        comments: `Variance: ${line.variance}`
                     });
                 }
             }
@@ -149,7 +157,7 @@ export class StocktakeService {
             return tx.stocktake.update({
                 where: { id },
                 data: {
-                    status: 'APPLIED',
+                    statusId: appliedStatusId,
                     completedAt: new Date()
                 }
             });
@@ -159,13 +167,13 @@ export class StocktakeService {
     async findOne(id: string) {
         return this.prisma.stocktake.findUnique({
             where: { id },
-            include: { lines: { include: { item: true } }, createdBy: true, location: true }
+            include: { lines: { include: { item: true } }, createdBy: true, storeLocation: true, status: true }
         });
     }
 
     async findAll() {
         return this.prisma.stocktake.findMany({
-            include: { createdBy: true, location: true },
+            include: { createdBy: true, storeLocation: true, status: true },
             orderBy: { createdAt: 'desc' }
         });
     }

@@ -9,33 +9,31 @@ export declare class ReportsService {
         sortBy?: string;
         order?: 'asc' | 'desc';
     }): Promise<({
-        location: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            isActive: boolean;
-            updatedAt: Date;
-            branchId: string;
-            code: string;
-            type: string;
-            parentLocationId: string | null;
-        };
         item: {
             id: string;
             description: string | null;
             createdAt: Date;
             name: string;
-            updatedAt: Date;
             code: string;
+            updatedAt: Date;
             categoryId: string;
             unitOfMeasure: string;
-            status: string;
+            statusId: string;
             reorderLevel: number | null;
             reorderQuantity: number | null;
         };
+        storeLocation: {
+            id: string;
+            createdAt: Date;
+            isActive: boolean;
+            name: string;
+            code: string;
+            updatedAt: Date;
+            branchId: string;
+        };
     } & {
-        locationId: string;
         itemId: string;
+        storeLocationId: string;
         quantityOnHand: number;
         reservedQuantity: number;
         lastUpdatedAt: Date;
@@ -50,48 +48,56 @@ export declare class ReportsService {
         sortBy?: string;
         order?: 'asc' | 'desc';
     }): Promise<({
-        reasonCode: {
+        createdBy: {
             id: string;
-            description: string | null;
             createdAt: Date;
-            name: string;
             isActive: boolean;
-            code: string;
-            requiresApproval: boolean;
-            requiresFreeText: boolean;
-            approvalThreshold: number | null;
-            label: string | null;
+            updatedAt: Date;
+            branchId: string;
+            departmentId: string;
+            unitId: string;
+            email: string;
+            passwordHash: string;
+            fullName: string;
+            jobRoleId: string;
+            primaryStoreLocationId: string | null;
+            mustChangePassword: boolean;
         };
         item: {
             id: string;
             description: string | null;
             createdAt: Date;
             name: string;
-            updatedAt: Date;
             code: string;
+            updatedAt: Date;
             categoryId: string;
             unitOfMeasure: string;
-            status: string;
+            statusId: string;
             reorderLevel: number | null;
             reorderQuantity: number | null;
         };
-        createdBy: {
+        reasonCode: {
+            label: string | null;
             id: string;
+            description: string | null;
             createdAt: Date;
-            email: string;
-            passwordHash: string;
-            fullName: string;
-            departmentId: string | null;
-            locationId: string | null;
-            mustChangePassword: boolean;
             isActive: boolean;
-            updatedAt: Date;
-            branchId: string | null;
+            name: string;
+            code: string;
+            requiresFreeText: boolean;
+            requiresApproval: boolean;
+            approvalThreshold: number | null;
+        };
+        movementType: {
+            label: string;
+            id: string;
+            description: string | null;
+            code: string;
         };
     } & {
         id: string;
         department: string | null;
-        movementType: string;
+        comments: string | null;
         unitOfMeasure: string;
         itemId: string;
         quantity: number;
@@ -100,13 +106,13 @@ export declare class ReportsService {
         useBy: string | null;
         suppliedBy: string | null;
         receivedBy: string | null;
-        comments: string | null;
         createdAtUtc: Date;
         source: string;
         unitCost: number | null;
         totalCost: number | null;
-        fromLocationId: string | null;
-        toLocationId: string | null;
+        fromStoreLocationId: string | null;
+        toStoreLocationId: string | null;
+        movementTypeId: string;
         reasonCodeId: string;
         createdByUserId: string;
         importJobId: string | null;
@@ -114,33 +120,31 @@ export declare class ReportsService {
         reversalOfLedgerId: string | null;
     })[]>;
     getLowStock(): Promise<({
-        location: {
-            id: string;
-            createdAt: Date;
-            name: string;
-            isActive: boolean;
-            updatedAt: Date;
-            branchId: string;
-            code: string;
-            type: string;
-            parentLocationId: string | null;
-        };
         item: {
             id: string;
             description: string | null;
             createdAt: Date;
             name: string;
-            updatedAt: Date;
             code: string;
+            updatedAt: Date;
             categoryId: string;
             unitOfMeasure: string;
-            status: string;
+            statusId: string;
             reorderLevel: number | null;
             reorderQuantity: number | null;
         };
+        storeLocation: {
+            id: string;
+            createdAt: Date;
+            isActive: boolean;
+            name: string;
+            code: string;
+            updatedAt: Date;
+            branchId: string;
+        };
     } & {
-        locationId: string;
         itemId: string;
+        storeLocationId: string;
         quantityOnHand: number;
         reservedQuantity: number;
         lastUpdatedAt: Date;

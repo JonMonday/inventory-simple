@@ -20,8 +20,8 @@ let ReportsService = class ReportsService {
     async getStockOnHand(query) {
         const { locationId, skip = 0, take = 50, sortBy = 'lastUpdatedAt', order = 'desc' } = query;
         return this.prisma.stockSnapshot.findMany({
-            where: locationId ? { locationId } : {},
-            include: { item: true, location: true },
+            where: locationId ? { storeLocationId: locationId } : {},
+            include: { item: true, storeLocation: true },
             orderBy: { [sortBy]: order },
             skip: Number(skip),
             take: Number(take),
@@ -38,13 +38,13 @@ let ReportsService = class ReportsService {
             where.itemId = filters.itemId;
         if (filters.locationId) {
             where.OR = [
-                { fromLocationId: filters.locationId },
-                { toLocationId: filters.locationId }
+                { fromStoreLocationId: filters.locationId },
+                { toStoreLocationId: filters.locationId }
             ];
         }
         return this.prisma.inventoryLedger.findMany({
             where,
-            include: { item: true, reasonCode: true, createdBy: true },
+            include: { item: true, movementType: true, reasonCode: true, createdBy: true },
             orderBy: { [sortBy]: order },
             skip: Number(skip),
             take: Number(take),
@@ -52,7 +52,7 @@ let ReportsService = class ReportsService {
     }
     async getLowStock() {
         const snapshots = await this.prisma.stockSnapshot.findMany({
-            include: { item: true, location: true },
+            include: { item: true, storeLocation: true },
             where: { quantityOnHand: { gt: 0 } }
         });
         return snapshots.filter(s => {
@@ -62,8 +62,12 @@ let ReportsService = class ReportsService {
     }
     async getRequestKPIs() {
         const total = await this.prisma.request.count();
-        const fulfilled = await this.prisma.request.count({ where: { status: 'FULFILLED' } });
-        const rejected = await this.prisma.request.count({ where: { status: 'REJECTED' } });
+        const fulfilled = await this.prisma.request.count({
+            where: { status: { code: 'CONFIRMED' } }
+        });
+        const rejected = await this.prisma.request.count({
+            where: { status: { code: 'REJECTED' } }
+        });
         return {
             totalRequests: total,
             fulfillmentRate: total ? (fulfilled / total) * 100 : 0,
@@ -71,7 +75,7 @@ let ReportsService = class ReportsService {
         };
     }
     async getAdjustmentsSummary(query) {
-        const where = { movementType: { in: ['ADJUSTMENT', 'REVERSAL'] } };
+        const where = { movementType: { code: { in: ['ADJUSTMENT', 'REVERSAL'] } } };
         if (query.fromDate)
             where.createdAtUtc = { gte: new Date(query.fromDate) };
         if (query.toDate)

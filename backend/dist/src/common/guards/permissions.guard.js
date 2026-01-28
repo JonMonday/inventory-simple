@@ -64,11 +64,11 @@ let PermissionsGuard = class PermissionsGuard {
         const userPermissions = new Set();
         userWithPermissions.roles.forEach((ur) => {
             ur.role.permissions.forEach((rp) => {
-                userPermissions.add(`${rp.permission.resource}.${rp.permission.action}`);
+                userPermissions.add(rp.permission.key);
             });
         });
         userWithPermissions.permissions.forEach((up) => {
-            userPermissions.add(`${up.permission.resource}.${up.permission.action}`);
+            userPermissions.add(up.permission.key);
         });
         return requiredPermissions.every((permission) => userPermissions.has(permission));
     }

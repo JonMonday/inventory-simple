@@ -14,10 +14,11 @@ const items_module_1 = require("./items/items.module");
 const users_module_1 = require("./users/users.module");
 const requests_module_1 = require("./requests/requests.module");
 const inventory_module_1 = require("./inventory/inventory.module");
-const stocktake_module_1 = require("./stocktake/stocktake.module");
-const reports_module_1 = require("./reports/reports.module");
 const prisma_module_1 = require("./prisma/prisma.module");
-const locations_module_1 = require("./locations/locations.module");
+const organization_module_1 = require("./organization/organization.module");
+const templates_module_1 = require("./templates/templates.module");
+const metadata_module_1 = require("./metadata/metadata.module");
+const common_module_1 = require("./common/common.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -33,9 +34,10 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             requests_module_1.RequestsModule,
             inventory_module_1.InventoryModule,
-            stocktake_module_1.StocktakeModule,
-            reports_module_1.ReportsModule,
-            locations_module_1.LocationsModule,
+            organization_module_1.OrganizationModule,
+            templates_module_1.TemplatesModule,
+            metadata_module_1.MetadataModule,
+            common_module_1.CommonModule,
         ],
         providers: [],
     })

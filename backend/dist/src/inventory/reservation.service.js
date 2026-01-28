@@ -17,50 +17,11 @@ let ReservationService = class ReservationService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async reserve(tx, requestLineId, itemId, locationId, quantity) {
-        let snapshot = await tx.stockSnapshot.findUnique({
-            where: { itemId_locationId: { itemId, locationId } },
-        });
-        if (!snapshot) {
-            throw new common_1.BadRequestException(`No stock snapshot found for item ${itemId} at location ${locationId}`);
-        }
-        const available = snapshot.quantityOnHand - snapshot.reservedQuantity;
-        if (available < quantity) {
-            throw new common_1.BadRequestException(`Insufficient available stock. Requested: ${quantity}, Available: ${available}`);
-        }
-        await tx.stockSnapshot.update({
-            where: { itemId_locationId: { itemId, locationId } },
-            data: {
-                reservedQuantity: { increment: quantity },
-            },
-        });
-        await tx.reservation.create({
-            data: {
-                requestLineId,
-                itemId,
-                locationId,
-                quantity,
-            },
-        });
+    async reserve(data) {
+        throw new Error('Using RequestWorkflowService for reservations in this version.');
     }
-    async release(tx, requestLineId) {
-        const reservation = await tx.reservation.findUnique({
-            where: { requestLineId },
-        });
-        if (!reservation)
-            return;
-        await tx.stockSnapshot.update({
-            where: { itemId_locationId: { itemId: reservation.itemId, locationId: reservation.locationId } },
-            data: {
-                reservedQuantity: { decrement: reservation.quantity },
-            },
-        });
-        await tx.reservation.delete({
-            where: { id: reservation.id },
-        });
-    }
-    async commit(tx, requestLineId) {
-        await this.release(tx, requestLineId);
+    async release(data) {
+        throw new Error('Using workflow cancellation for release.');
     }
 };
 exports.ReservationService = ReservationService;

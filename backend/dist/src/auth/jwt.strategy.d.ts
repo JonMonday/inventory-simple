@@ -11,9 +11,11 @@ export declare class JwtStrategy extends JwtStrategy_base {
         email: string;
         fullName: string;
         roles: string[];
-        branchId: string | null;
-        locationId: string | null;
-        departmentId: string | null;
+        branchId: string;
+        primaryStoreLocationId: string | null;
+        departmentId: string;
+        unitId: string;
+        jobRoleId: string;
     }>;
 }
 export {};

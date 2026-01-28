@@ -8,8 +8,8 @@ export class ReportsService {
     async getStockOnHand(query: { locationId?: string, skip?: number, take?: number, sortBy?: string, order?: 'asc' | 'desc' }) {
         const { locationId, skip = 0, take = 50, sortBy = 'lastUpdatedAt', order = 'desc' } = query;
         return this.prisma.stockSnapshot.findMany({
-            where: locationId ? { locationId } : {},
-            include: { item: true, location: true },
+            where: locationId ? { storeLocationId: locationId } : {},
+            include: { item: true, storeLocation: true },
             orderBy: { [sortBy]: order },
             skip: Number(skip),
             take: Number(take),
@@ -24,14 +24,14 @@ export class ReportsService {
         if (filters.itemId) where.itemId = filters.itemId;
         if (filters.locationId) {
             where.OR = [
-                { fromLocationId: filters.locationId },
-                { toLocationId: filters.locationId }
+                { fromStoreLocationId: filters.locationId },
+                { toStoreLocationId: filters.locationId }
             ];
         }
 
         return this.prisma.inventoryLedger.findMany({
             where,
-            include: { item: true, reasonCode: true, createdBy: true },
+            include: { item: true, movementType: true, reasonCode: true, createdBy: true },
             orderBy: { [sortBy]: order },
             skip: Number(skip),
             take: Number(take),
@@ -39,16 +39,9 @@ export class ReportsService {
     }
 
     async getLowStock() {
-        // Find items where onHand < reorderLevel
-        // Complex query for Prisma unless we use raw query or filter in JS.
-        // We have `StockSnapshot` but reorderLevel is on `Item`.
-        // We can fetch snapshots with item include and filter in JS.
-        // Or Raw SQL.
-        // Let's use JS filter for simplicity unless volume is huge.
-
         const snapshots = await this.prisma.stockSnapshot.findMany({
-            include: { item: true, location: true },
-            where: { quantityOnHand: { gt: 0 } } // Optimization?
+            include: { item: true, storeLocation: true },
+            where: { quantityOnHand: { gt: 0 } }
         });
 
         return snapshots.filter(s => {
@@ -59,8 +52,12 @@ export class ReportsService {
 
     async getRequestKPIs() {
         const total = await this.prisma.request.count();
-        const fulfilled = await this.prisma.request.count({ where: { status: 'FULFILLED' } });
-        const rejected = await this.prisma.request.count({ where: { status: 'REJECTED' } });
+        const fulfilled = await this.prisma.request.count({
+            where: { status: { code: 'CONFIRMED' } }
+        });
+        const rejected = await this.prisma.request.count({
+            where: { status: { code: 'REJECTED' } }
+        });
 
         return {
             totalRequests: total,
@@ -70,7 +67,7 @@ export class ReportsService {
     }
 
     async getAdjustmentsSummary(query: { fromDate?: string, toDate?: string }) {
-        const where: any = { movementType: { in: ['ADJUSTMENT', 'REVERSAL'] } };
+        const where: any = { movementType: { code: { in: ['ADJUSTMENT', 'REVERSAL'] } } };
         if (query.fromDate) where.createdAtUtc = { gte: new Date(query.fromDate) };
         if (query.toDate) where.createdAtUtc = { ...where.createdAtUtc, lte: new Date(query.toDate) };
 
@@ -79,7 +76,6 @@ export class ReportsService {
             include: { reasonCode: true, item: true },
         });
 
-        // Group by reason code
         const summary = adjustments.reduce((acc: any, curr) => {
             const key = curr.reasonCode.name;
             if (!acc[key]) acc[key] = { count: 0, totalAbsQty: 0, reason: key };
