@@ -35,7 +35,7 @@ export const getRequestActions = (
     const isOwner = request.requesterUserId === user.id;
 
     // Eligibility logic
-    const activeAssignment = request.assignments.find(a => a.isActive);
+    const activeAssignment = request.assignments.find(a => a.status === 'ACTIVE');
     const isAssigned = activeAssignment?.assignedToId === user.id;
 
     const hasPerm = (p: string) => isSuperAdmin || permissions.includes(p);

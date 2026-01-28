@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/use-auth-store";
-import { canAccessRoute } from "@/permissions/matrix";
+import { canAccessRoute, Permission } from "@/permissions/matrix";
 import { Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -44,7 +44,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
     }
 
     // Check RBAC
-    const hasAccess = canAccessRoute(permissions, pathname);
+    const hasAccess = canAccessRoute(permissions as Permission[], pathname);
 
     if (!hasAccess) {
         return (

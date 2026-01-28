@@ -45,7 +45,7 @@ import {
     LayoutGrid,
 } from "lucide-react";
 import { useAuthStore } from "@/store/use-auth-store";
-import { APP_ROUTES, canAccessRoute } from "@/permissions/matrix";
+import { APP_ROUTES, canAccessRoute, Permission } from "@/permissions/matrix";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -105,7 +105,7 @@ export function Sidebar() {
 
     // Group routes by navGroup
     const groupedRoutes = APP_ROUTES.reduce((acc, route) => {
-        if (!canAccessRoute(permissions, route.href)) return acc;
+        if (!canAccessRoute(permissions as Permission[], route.href)) return acc;
         if (!acc[route.navGroup]) acc[route.navGroup] = [];
         acc[route.navGroup].push(route);
         return acc;

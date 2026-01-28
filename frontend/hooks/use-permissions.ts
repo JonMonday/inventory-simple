@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/store/use-auth-store';
-import { hasAny, hasAll } from '@/permissions/matrix';
+import { hasAny, hasAll, Permission } from '@/permissions/matrix';
 
 export const usePermissions = () => {
     const { permissions, user } = useAuthStore();
@@ -12,11 +12,11 @@ export const usePermissions = () => {
     };
 
     const hasAnyPermissions = (perms: string[]): boolean => {
-        return hasAny(permissions, perms);
+        return hasAny(permissions as Permission[], perms as Permission[]);
     };
 
     const hasAllPermissions = (perms: string[]): boolean => {
-        return hasAll(permissions, perms);
+        return hasAll(permissions as Permission[], perms as Permission[]);
     };
 
     return {

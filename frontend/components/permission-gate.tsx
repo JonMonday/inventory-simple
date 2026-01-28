@@ -18,7 +18,7 @@ export function PermissionGate({ children, permissions, fallback = null }: Permi
         return <>{children}</>;
     }
 
-    const hasAccess = hasAll(userPermissions, permissions);
+    const hasAccess = hasAll(userPermissions as Permission[], permissions);
 
     if (!hasAccess) {
         return <>{fallback}</>;
